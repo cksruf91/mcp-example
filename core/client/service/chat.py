@@ -1,14 +1,14 @@
 from fastmcp.tools import Tool
 
+from common.llm.model import ToolOutput
 from common.llm.open_ai_provider import OpenAIProvider
-from common.llm.provider import ToolOutput
 from common.service import ServiceClient
 from models.request import ChattingRequest
 from models.response import ChatResponse
 
 
 class ChatService(ServiceClient):
-    openai = OpenAIProvider()
+    openai = OpenAIProvider()  # TODO: Abstract LLM provider
 
     def __init__(self, request: ChattingRequest):
         super().__init__()
@@ -31,7 +31,7 @@ class ChatService(ServiceClient):
             )
 
         async with self.mcp_servers:
-            for tool in invoked_tools.tools:
+            for tool in invoked_tools.tools:  # TODO: get tool result asynchronously
                 tool_result = await self.mcp_servers.call_tool(tool.function_name, tool.function_param)
                 input_list.append(
                     ToolOutput(

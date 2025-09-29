@@ -5,7 +5,7 @@ from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
 from openai.types.responses.function_tool_param import FunctionToolParam
 
-from common.llm.provider import InvokedTools, TextMessage
+from common.llm.model import InvokedTools, TextMessage
 
 
 class OpenAIProvider:

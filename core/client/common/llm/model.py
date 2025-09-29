@@ -22,7 +22,6 @@ class InvokedTools(BaseModel):
     def init_from_openai(cls, invoke_from_openai: list[ResponseFunctionToolCall]) -> "InvokedTools":
         tools = []
         for invoked in invoke_from_openai:
-            print(invoked)
             tools.append(
                 Tool(
                     call_id=invoked.call_id,
