@@ -15,7 +15,7 @@ mcp = FastMCP(
     meta={'author': 'anonymous'},
     enabled=True
 )
-def add(a: float, b: float) -> ToolResult:
+async def add(a: float, b: float, ctx: Context = None) -> ToolResult:
     """
     Adds two numbers and returns the result.
 
@@ -26,12 +26,14 @@ def add(a: float, b: float) -> ToolResult:
     Args:
         a (Union[int, float]): First number to add
         b (Union[int, float]): Second number to add
+        ctx : internal use only, ignore this parameter
 
     Returns:
         ToolResult: Result object containing:
             - Text content showing the calculation
             - Structured content with the numeric result
     """
+    await ctx.info('get_user_name tool invoked')
     return ToolResult(
         content=TextContent(type="text", text=f"{a} + {b} = {a + b}"),
         structured_content={"result": a + b}
@@ -43,7 +45,7 @@ def add(a: float, b: float) -> ToolResult:
     meta={'author': 'anonymous'},
     enabled=True
 )
-def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
+async def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
     """
     Retrieves a user's name based on their user ID.
 
@@ -59,7 +61,7 @@ def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
             - Text content with the user's name
             - Structured content with the name result
     """
-    ctx.info('get_user_name tool invoked')
+    await ctx.info('get_user_name tool invoked')
     nams_space = {
         'M4386': 'kimi raikkonen'
     }

@@ -1,6 +1,5 @@
 from fastmcp.tools import Tool
 
-from common.llm.model import ToolOutput
 from common.llm.open_ai_provider import OpenAIProvider
 from common.service import ServiceClient
 from models.request import ChattingRequest
@@ -8,11 +7,12 @@ from models.response import ChatResponse
 
 
 class ChatService(ServiceClient):
-    openai = OpenAIProvider()  # TODO: Abstract LLM provider
 
     def __init__(self, request: ChattingRequest):
         super().__init__()
+        self.llm = OpenAIProvider()
         self.request = request
+        self.logger.info(f"Initializing Service, Request: {request}")
 
     async def run(self) -> ChatResponse:
 
@@ -20,10 +20,9 @@ class ChatService(ServiceClient):
             {'role': 'system', 'content': self.prompt_manager.system_prompt},
             {'role': 'user', 'content': self.request.text},
         ]
-
         async with self.mcp_servers:
-            result: list[Tool] = await self.mcp_servers.list_tools()
-        output_message, invoked_tools = self.openai.invoke_tools(input_list, available_tools=result)
+            available_tools: list[Tool] = await self.mcp_servers.list_tools()
+        output_message, invoked_tools = self.llm.invoke_tools(input_list, available_tools=available_tools)
         if not invoked_tools:
             return ChatResponse(
                 chat_id=1,
@@ -31,14 +30,8 @@ class ChatService(ServiceClient):
             )
 
         async with self.mcp_servers:
-            for tool in invoked_tools.tools:  # TODO: get tool result asynchronously
-                tool_result = await self.mcp_servers.call_tool(tool.function_name, tool.function_param)
-                input_list.append(
-                    ToolOutput(
-                        call_id=tool.call_id,
-                        tool_output=tool_result,
-                    ).get_input_message()
-                )
+            for tool in invoked_tools:  # TODO: get tool result asynchronously
+                await tool.call(client=self.mcp_servers)
 
-        output = self.openai.chat(input_list)
-        return ChatResponse(chat_id=1, message=output)
+        output = self.llm.chat(input_list, tools=invoked_tools)
+        return ChatResponse(chat_id=1, message=output.text)
