@@ -2,4 +2,4 @@ from pydantic import BaseModel, Field
 
 
 class ChattingRequest(BaseModel):
-    text: str = Field(default="plz add these two number 3.24, 44.23")
+    text: str = Field(default="tell me the name and address for userID M33")

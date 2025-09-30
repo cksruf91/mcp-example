@@ -61,14 +61,48 @@ async def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
             - Text content with the user's name
             - Structured content with the name result
     """
-    await ctx.info('get_user_name tool invoked')
+    await ctx.info(f'{__name__} tool invoked')
     nams_space = {
         'M4386': 'kimi raikkonen'
     }
     user_name = nams_space.get(user_id)
+    await ctx.info(f'{__name__} return value [{user_name}]')
     return ToolResult(
         content=TextContent(type="text", text=user_name),
         structured_content={"result": user_name}
+    )
+
+
+@mcp.tool(
+    tags={'alpha'},
+    meta={'author': 'anonymous'},
+    enabled=True
+)
+async def get_user_address(user_id: str, ctx: Context = None) -> ToolResult:
+    """
+    Retrieves a user's address based on their user ID.
+
+    This function takes a user ID string and returns the corresponding address
+    from a predefined mapping. If the user ID is not found, returns None.
+
+    Args:
+        user_id (str): The ID of the user to look up
+        ctx : internal use only, ignore this parameter
+
+    Returns:
+        ToolResult: Result object containing:
+            - Text content with the user's address
+            - Structured content with the address result
+    """
+    await ctx.info(f'{__name__} tool invoked')
+    nams_space = {
+        'M33': '12 Av. des Spélugues, 98000 Monaco,'
+    }
+    user_address = nams_space.get(user_id)
+    await ctx.info(f'{__name__} return value [{user_address}]')
+    return ToolResult(
+        content=TextContent(type="text", text=user_address),
+        structured_content={"result": user_address}
     )
 
 

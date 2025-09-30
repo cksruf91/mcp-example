@@ -1,3 +1,5 @@
+import asyncio
+
 from fastmcp.tools import Tool
 
 from common.llm.open_ai_provider import OpenAIProvider
@@ -30,8 +32,9 @@ class ChatService(ServiceClient):
             )
 
         async with self.mcp_servers:
-            for tool in invoked_tools:  # TODO: get tool result asynchronously
-                await tool.call(client=self.mcp_servers)
+            await asyncio.gather(
+                *[tool.call(client=self.mcp_servers) for tool in invoked_tools]
+            )
 
         output = self.llm.chat(input_list, tools=invoked_tools)
         return ChatResponse(chat_id=1, message=output.text)
