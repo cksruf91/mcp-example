@@ -12,6 +12,9 @@ class ServiceClient:
         "mcpServers": {
             "alpha": {
                 "url": "http://localhost:9011/mcp"
+            },
+            "beta": {
+                "url": "http://localhost:9012/mcp"
             }
         }
     }

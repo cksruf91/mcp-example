@@ -1,4 +1,4 @@
-from fastmcp.tools import Tool
+from mcp.types import Tool
 from pydantic import BaseModel, Field
 
 
@@ -7,5 +7,5 @@ class ToolListResponse(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    chat_id: int = Field(..., description="Chat ID")
+    chat_id: str = Field(..., description="Room ID")
     message: str = Field(..., description="Message")

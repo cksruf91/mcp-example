@@ -1,6 +1,6 @@
 import os
 
-from fastmcp.tools import Tool
+from mcp.types import Tool
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
 from openai.types.responses.function_tool_param import FunctionToolParam
@@ -79,13 +79,13 @@ class OpenAIProvider(metaclass=Singleton):
 
         return output_message, invoked_tools
 
-    def chat(self, input_list: list[dict], tools: list[McpTool]) -> OutputMessage:
-        for tool in tools:
+    def chat(self, input_list: list[dict], mcp_tools: list[McpTool]) -> OutputMessage:
+        for tool in mcp_tools:
             if tool.output is not None:
                 input_list.append({
                     "type": "function_call_output",
                     "call_id": tool.call_id,
-                    "output": tool.output,
+                    "output": tool.function_result,
                 })
         response = self.openai.responses.create(
             model="gpt-5-mini",

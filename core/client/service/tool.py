@@ -1,4 +1,4 @@
-from fastmcp.tools import Tool
+from mcp.types import Tool
 
 from common.service import ServiceClient
 from models.response import ToolListResponse
