@@ -2,83 +2,97 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Structure
+## Project Overview
 
-This is a minimal Python project with a simple structure:
-- `main.py` - Single entry point with a basic "Hello World" function
-- `pyproject.toml` - Project configuration using modern Python packaging standards
-- `mcp-project/` - Virtual environment directory (should be ignored for development)
+This is an MCP (Model Context Protocol) example project demonstrating a client-server architecture where:
+- **MCP Servers** (`core/server/`) expose tools via FastMCP
+- **MCP Client** (`core/client/`) is a FastAPI application that aggregates multiple MCP servers and invokes their tools through OpenAI's function calling
 
 ## Development Commands
 
-### Installing Dependencies
+### Running MCP Servers
+
+MCP servers expose tools that can be called by the client. Run them on separate ports:
+
 ```bash
-pip install -e .
+# From core/server/ directory
+fastmcp run alpha.py --transport http --port 9011
+fastmcp run beta.py --transport http --port 9012
 ```
 
-### Running the MCP Server
+**Alpha server** provides user information tools (`get_user_name`, `get_user_address`)
+**Beta server** provides price calculation tools (`get_final_price`)
+
+### Running the MCP Client
+
+The client is a FastAPI application that must be run from the `core/client/` directory:
+
 ```bash
-python main.py server
+# From core/client/ directory
+uvicorn client:main --reload
 ```
 
-### Running the MCP Client (Demo Mode)
-```bash
-python main.py client
-```
+Client endpoints:
+- `GET /ping` - Health check
+- `GET /tool/list` - List all available tools from connected MCP servers
+- `POST /chat/main` - Send a chat message that can invoke MCP tools
 
-### Running the MCP Client (Interactive Mode)
-```bash
-python main.py client --interactive
-```
+### Environment Setup
 
-### Running Individual Components
-```bash
-# Run server directly
-python mcp_server.py
+Requires `OPENAI_API_KEY` environment variable for LLM provider functionality.
 
-# Run client directly
-python mcp_client.py
-python mcp_client.py --interactive
-```
+## Architecture
 
-### Python Environment
-The project uses Python 3.12+ as specified in pyproject.toml. A virtual environment exists in `mcp-project/` but standard Python virtual environment practices should be used for development.
+### MCP Server Layer (`core/server/`)
 
-## Project Configuration
+FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
+- Must have `async` signature
+- Accepts `Context` as last parameter for logging
+- Returns `ToolResult` with `TextContent` and `structured_content`
+- Can be tagged and have metadata for filtering
 
-- Licensed under Apache License 2.0
-- Dependencies: fastmcp, asyncio-mqtt
-- Project name: "mcp-example"
-- Version: 0.1.0
+### MCP Client Layer (`core/client/`)
 
-## Architecture Notes
+**Entry point**: `client.py` creates FastAPI app with two routers:
+- `route/chat.py` - Chat endpoint
+- `route/tool.py` - Tool listing endpoint
 
-This is an MCP (Model Context Protocol) implementation with client-server architecture:
+**Service layer** (`service/`):
+- `ChatService` - Orchestrates LLM + MCP tool invocation workflow
+- `ToolListService` - Retrieves available tools from all connected servers
 
-### Server (`mcp_server.py`)
-- Built using FastMCP framework
-- Provides tools for: time queries, math operations, file operations, note management
-- Supports resources and prompts
-- Uses stdio transport for communication
+**Key workflow** (in `service/chat.py:ChatService.run()`):
+1. Get available tools from all connected MCP servers
+2. Call `OpenAIProvider.invoke_tools()` to let LLM decide which tools to invoke
+3. Execute invoked tools in parallel using `asyncio.gather()`
+4. Send tool results back to LLM for final response
 
-### Client (`mcp_client.py`)
-- Connects to MCP servers via subprocess
-- Can run in demo mode or interactive mode
-- Demonstrates tool calling, resource reading, and prompt usage
+**MCP server configuration**: Defined in `common/service.py:ServiceClient.config` as a dictionary mapping server names to HTTP URLs. The `fastmcp.Client` aggregates multiple MCP servers.
 
-### Main Entry Point (`main.py`)
-- Unified interface to run either server or client
-- Handles argument parsing and mode selection
+**LLM integration** (`common/llm/`):
+- `OpenAIProvider` - Wraps OpenAI API, converts MCP tool schemas to OpenAI function format
+- `model.py:McpTool` - Represents an invoked tool with `call()` method to execute via MCP client
+- Uses OpenAI's new `responses.create()` API with function calling
 
-### Available Tools
-- `get_current_time()`: Returns current timestamp
-- `add_numbers(a, b)`: Adds two numbers
-- `list_files(directory)`: Lists files in a directory
-- `write_note(filename, content)`: Writes content to a note file
-- `read_note(filename)`: Reads content from a note file
+**Prompt management**: `PromptManager` (singleton) loads prompts from `resource/prompt.yaml`
 
-### Resources
-- `config://system`: System configuration information
+### Data Models
 
-### Prompts
-- `greeting`: Generates personalized greeting messages
+- `models/request.py` - `ChattingRequest` with text and roomId
+- `models/response.py` - `ChatResponse`, `ToolListResponse`
+
+## Key Files
+
+- `core/client/common/service.py:11` - MCP server URL configuration
+- `core/client/service/chat.py:25` - Main chat workflow orchestration
+- `core/client/common/llm/open_ai_provider.py:62` - LLM tool invocation logic
+- `core/client/common/llm/model.py:16` - MCP tool execution via `McpTool.call()`
+- `core/server/alpha.py`, `core/server/beta.py` - Example MCP tool servers
+
+## Dependencies
+
+Core dependencies (in `pyproject.toml`):
+- `fastapi[standard]` - Client web framework
+- `fastmcp` - MCP protocol implementation
+- `openai` - LLM provider
+- `numpy` - Data processing
