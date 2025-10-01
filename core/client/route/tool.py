@@ -7,5 +7,4 @@ tool_router = APIRouter(prefix='/tool', tags=['tool'])
 
 @tool_router.get('/list')
 async def get_tool_list():
-    service = ToolListService()
-    return await service.run()
+    return await ToolListService().run()

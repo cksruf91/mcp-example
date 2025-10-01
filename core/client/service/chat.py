@@ -1,38 +1,45 @@
 import asyncio
 
-from mcp.types import Tool
-
+from common.llm.model import AvailableTool
 from common.llm.open_ai_provider import OpenAIProvider
-from common.service import ServiceClient
+from common.service import CommonService
 from models.request import ChattingRequest
 from models.response import ChatResponse
 
 
-class ChatService(ServiceClient):
+class ChatService(CommonService):
 
     def __init__(self, request: ChattingRequest):
-        super().__init__()
+        super().__init__(room_id=request.roomId)
         self.llm = OpenAIProvider()
         self.request = request
         self.logger.info(f"Initializing Service, Request: {request}")
 
-    async def get_available_tools(self, tags: list[str]) -> list[Tool]:
+    async def get_available_tools(self, tags: list[str]) -> list[AvailableTool]:
+        """Get available tools from MCP servers, optionally filtered by tags"""
         async with self.mcp_servers:
-            # print(tool.meta)  # {'author': 'anonymous', '_fastmcp': {'tags': ['alpha']}}
-            available_tools: list[Tool] = await self.mcp_servers.list_tools()  # TODO filtering tool
+            available_tools = [AvailableTool(tool) for tool in await self.mcp_servers.list_tools()]
+            if tags:
+                available_tools = [tool for tool in available_tools if tool.has_any_tags(tags)]
+
         return available_tools
 
     async def run(self) -> ChatResponse:
 
-        input_list = [
+        conversation_history = [
             {'role': 'system', 'content': self.prompt_manager.system_prompt},
             {'role': 'user', 'content': self.request.text},
         ]
+
         available_tools = await self.get_available_tools(tags=[])
-        output_message, invoked_tools = self.llm.invoke_tools(input_list, available_tools=available_tools)
+        conversation_history, output_message, invoked_tools = self.llm.invoke_tools(
+            conversation_history,
+            available_tools=available_tools
+        )
+
         if not invoked_tools:
             return ChatResponse(
-                chat_id=self.request.roomId,
+                roomId=self.request.roomId,
                 message=output_message.text
             )
 
@@ -44,5 +51,5 @@ class ChatService(ServiceClient):
         for tool in invoked_tools:
             self.logger.info(f"tool result: {tool}")
 
-        output = self.llm.chat(input_list, mcp_tools=invoked_tools)
-        return ChatResponse(chat_id=self.request.roomId, message=output.text)
+        conversation_history, output = self.llm.chat(conversation_history, mcp_tools=invoked_tools)
+        return ChatResponse(roomId=self.request.roomId, message=output.text)

@@ -7,5 +7,5 @@ class ToolListResponse(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    chat_id: str = Field(..., description="Room ID")
+    roomId: str = Field(..., description="Room ID")
     message: str = Field(..., description="Message")

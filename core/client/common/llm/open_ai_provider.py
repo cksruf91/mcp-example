@@ -1,12 +1,11 @@
 import os
 
-from mcp.types import Tool
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
 from openai.types.responses.function_tool_param import FunctionToolParam
 
 from common.functional.singleton import Singleton
-from common.llm.model import McpTool, OutputMessage
+from common.llm.model import AvailableTool, McpTool, OutputMessage
 
 
 class OpenAIProvider(metaclass=Singleton):
@@ -16,7 +15,7 @@ class OpenAIProvider(metaclass=Singleton):
         self.openai = OpenAI(api_key=api_key)
 
     @staticmethod
-    def _parsing_tool_schema(tool: Tool) -> FunctionToolParam:
+    def _parsing_tool_schema(tool: AvailableTool) -> FunctionToolParam:
         """
         parameter schema example:
             FunctionToolParam(
@@ -37,7 +36,7 @@ class OpenAIProvider(metaclass=Singleton):
                 strict=True
             )
         """
-        schema = tool.inputSchema
+        schema = tool.input_schema
         properties = {"type": "object", "additionalProperties": False, 'properties': {}}
         for key in schema['properties'].keys():
             _type = schema['properties'][key].get('type')
@@ -59,15 +58,26 @@ class OpenAIProvider(metaclass=Singleton):
             strict=True
         )
 
-    def invoke_tools(self, input_list: list[dict], available_tools: list[Tool]) -> tuple[OutputMessage, list[McpTool]]:
-        available_tools = [self._parsing_tool_schema(t) for t in available_tools]
+    def invoke_tools(self, input_list: list[dict], available_tools: list[AvailableTool]) -> tuple[list[dict], OutputMessage, list[McpTool]]:
+        """
+        Invoke tools using LLM function calling.
+
+        Returns:
+            tuple containing:
+                - Updated conversation history
+                - Output message from LLM
+                - List of invoked tools
+        """
+        conversation_history = input_list.copy()
+        tool_schemas = [self._parsing_tool_schema(t) for t in available_tools]
+
         response = self.openai.responses.create(
             model='gpt-5-mini',
-            tools=available_tools,
-            input=input_list,
+            tools=tool_schemas,
+            input=conversation_history,
         )
 
-        input_list += response.output
+        conversation_history += response.output
 
         invoked_tools = []
         output_message = OutputMessage()
@@ -77,24 +87,37 @@ class OpenAIProvider(metaclass=Singleton):
             if isinstance(output, ResponseOutputMessage):
                 output_message = OutputMessage.from_openai(output)
 
-        return output_message, invoked_tools
+        return conversation_history, output_message, invoked_tools
 
-    def chat(self, input_list: list[dict], mcp_tools: list[McpTool]) -> OutputMessage:
+    def chat(self, input_list: list[dict], mcp_tools: list[McpTool]) -> tuple[list[dict], OutputMessage]:
+        """
+        Generate chat response with tool results.
+
+        Returns:
+            tuple containing:
+                - Updated conversation history
+                - Output message from LLM
+        """
+        conversation_history = input_list.copy()
+
         for tool in mcp_tools:
-            if tool.output is not None:
-                input_list.append({
+            if tool.output:
+                conversation_history.append({
                     "type": "function_call_output",
                     "call_id": tool.call_id,
                     "output": tool.function_result,
                 })
+
         response = self.openai.responses.create(
             model="gpt-5-mini",
-            input=input_list,
+            input=conversation_history,
         )
+
         for output in response.output:
             if isinstance(output, ResponseOutputMessage):
-                return OutputMessage.from_openai(output)
-        return OutputMessage(text="null")
+                return conversation_history, OutputMessage.from_openai(output)
+
+        return conversation_history, OutputMessage(text="null")
 
     def chat_stream(self):
         ...

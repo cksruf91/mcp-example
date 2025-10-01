@@ -1,10 +1,10 @@
 from mcp.types import Tool
 
-from common.service import ServiceClient
+from common.service import CommonService
 from models.response import ToolListResponse
 
 
-class ToolListService(ServiceClient):
+class ToolListService(CommonService):
 
     def __init__(self):
         super().__init__()
