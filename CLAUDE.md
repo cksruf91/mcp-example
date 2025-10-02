@@ -35,7 +35,8 @@ uvicorn client:main --reload
 Client endpoints:
 - `GET /ping` - Health check
 - `GET /tool/list` - List all available tools from connected MCP servers
-- `POST /chat/main` - Send a chat message that can invoke MCP tools
+- `POST /chat/main` - Send a chat message that can invoke MCP tools (non-streaming)
+- `POST /chat/main/stream` - Send a chat message with streaming response
 
 ### Environment Setup
 
@@ -61,11 +62,18 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 - `ChatService` - Orchestrates LLM + MCP tool invocation workflow
 - `ToolListService` - Retrieves available tools from all connected servers
 
-**Key workflow** (in `service/chat.py:ChatService.run()`):
+**Key workflows**:
+
+*Complete mode* (`service/chat.py:ChatService.complete()`):
 1. Get available tools from all connected MCP servers (with optional tag filtering)
 2. Call `OpenAIProvider.invoke_tools()` to let LLM decide which tools to invoke
 3. Execute invoked tools in parallel using `asyncio.gather()` with `McpTool.call()`
-4. Send tool results back to LLM via `OpenAIProvider.chat()` for final response
+4. Send tool results back to LLM via `OpenAIProvider.chat_complete()` for final response
+
+*Stream mode* (`service/chat.py:ChatService.stream()`):
+1. Same tool discovery and invocation as complete mode
+2. Uses `OpenAIProvider.chat_stream()` to yield response chunks asynchronously
+3. Returns `AsyncIterable[str]` for server-sent events (SSE) via `StreamingResponse`
 
 **MCP server configuration**: Defined in `common/service.py:CommonService.config` as a dictionary mapping server names to HTTP URLs. The `fastmcp.Client` aggregates multiple MCP servers.
 
