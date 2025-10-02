@@ -1,7 +1,7 @@
 import asyncio
 from typing import AsyncIterable
 
-from common.llm.model import AvailableTool
+from common.llm.model import AvailableTool, McpTool, OutputMessage
 from common.llm.open_ai_provider import OpenAIProvider
 from common.service import CommonService
 from models.request import ChattingRequest
@@ -24,22 +24,15 @@ class ChatService(CommonService):
 
         return available_tools
 
-    async def run(self) -> str:
-
-        conversation_history = [
+    def _initialize_conversation(self) -> list[dict]:
+        """Initialize conversation history with system prompt and user message"""
+        return [
             {'role': 'system', 'content': self.prompt_manager.system_prompt},
             {'role': 'user', 'content': self.request.text},
         ]
 
-        available_tools = await self.get_available_tools(tags=[])
-        conversation_history, output_message, invoked_tools = self.llm.invoke_tools(
-            conversation_history,
-            available_tools=available_tools
-        )
-
-        if not invoked_tools:
-            return output_message.text
-
+    async def _execute_tools(self, invoked_tools: list[McpTool]) -> None:
+        """Execute invoked MCP tools in parallel and log results"""
         async with self.mcp_servers:
             await asyncio.gather(
                 *[tool.call(client=self.mcp_servers) for tool in invoked_tools]
@@ -48,32 +41,46 @@ class ChatService(CommonService):
         for tool in invoked_tools:
             self.logger.info(f"tool result: {tool}")
 
-        _, output = self.llm.chat(conversation_history, mcp_tools=invoked_tools)
-        return output.text
+    async def _process_request(self) -> tuple[list[dict], OutputMessage, list[McpTool]]:
+        """
+        Common workflow for processing chat request:
+        1. Initialize conversation
+        2. Get available tools
+        3. Invoke tools via LLM
 
-    async def stream(self) -> AsyncIterable[str]:
-        conversation_history = [
-            {'role': 'system', 'content': self.prompt_manager.system_prompt},
-            {'role': 'user', 'content': self.request.text},
-        ]
-
+        Returns:
+            tuple containing:
+                - conversation history
+                - output message
+                - invoked tools
+        """
+        conversation_history = self._initialize_conversation()
         available_tools = await self.get_available_tools(tags=[])
         conversation_history, output_message, invoked_tools = self.llm.invoke_tools(
             conversation_history,
             available_tools=available_tools
         )
+        return conversation_history, output_message, invoked_tools
+
+    async def complete(self) -> str:
+        conversation_history, output_message, invoked_tools = await self._process_request()
+
+        if not invoked_tools:
+            return output_message.text
+
+        await self._execute_tools(invoked_tools)
+
+        _, output = self.llm.chat_complete(conversation_history, mcp_tools=invoked_tools)
+        return output.text
+
+    async def stream(self) -> AsyncIterable[str]:
+        conversation_history, output_message, invoked_tools = await self._process_request()
 
         if not invoked_tools:
             yield output_message.text
             return
 
-        async with self.mcp_servers:
-            await asyncio.gather(
-                *[tool.call(client=self.mcp_servers) for tool in invoked_tools]
-            )
-
-        for tool in invoked_tools:
-            self.logger.info(f"tool result: {tool}")
+        await self._execute_tools(invoked_tools)
 
         self.logger.info("start generating message")
         async for event in self.llm.chat_stream(conversation_history, mcp_tools=invoked_tools):

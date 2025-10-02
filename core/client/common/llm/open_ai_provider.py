@@ -91,14 +91,16 @@ class OpenAIProvider(metaclass=Singleton):
 
         return conversation_history, output_message, invoked_tools
 
-    def chat(self, input_list: list[dict], mcp_tools: list[McpTool]) -> tuple[list[dict], OutputMessage]:
+    def _prepare_conversation_with_tools(self, input_list: list[dict], mcp_tools: list[McpTool]) -> list[dict]:
         """
-        Generate chat response with tool results.
+        Prepare conversation history by appending tool results.
+
+        Args:
+            input_list: Current conversation history
+            mcp_tools: List of executed MCP tools
 
         Returns:
-            tuple containing:
-                - Updated conversation history
-                - Output message from LLM
+            Updated conversation history with tool results
         """
         conversation_history = input_list.copy()
 
@@ -109,6 +111,19 @@ class OpenAIProvider(metaclass=Singleton):
                     "call_id": tool.call_id,
                     "output": tool.function_result,
                 })
+
+        return conversation_history
+
+    def chat_complete(self, input_list: list[dict], mcp_tools: list[McpTool]) -> tuple[list[dict], OutputMessage]:
+        """
+        Generate chat response with tool results.
+
+        Returns:
+            tuple containing:
+                - Updated conversation history
+                - Output message from LLM
+        """
+        conversation_history = self._prepare_conversation_with_tools(input_list, mcp_tools)
 
         response = self.openai.responses.create(
             model="gpt-5-mini",
@@ -128,22 +143,12 @@ class OpenAIProvider(metaclass=Singleton):
         Yields:
             str: Text chunks from the streaming response
         """
-        conversation_history = input_list.copy()
-
-        for tool in mcp_tools:
-            if tool.output:
-                conversation_history.append({
-                    "type": "function_call_output",
-                    "call_id": tool.call_id,
-                    "output": tool.function_result,
-                })
-
-        parameters = {
-            "model": "gpt-5-mini",
-            "input": conversation_history,
-            "stream": True,
-        }
-        stream = self.openai.responses.create(**parameters)
+        conversation_history = self._prepare_conversation_with_tools(input_list, mcp_tools)
+        stream = self.openai.responses.create(
+            input=conversation_history,
+            model="gpt-5-mini",
+            stream=True,
+        )
 
         for event in stream:
             if event.type == 'response.created':

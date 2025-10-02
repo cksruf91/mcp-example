@@ -10,7 +10,7 @@ chat_router = APIRouter(prefix='/chat', tags=['chat'])
 
 @chat_router.post('/main')
 async def get_chatting_message(request: ChattingRequest) -> ChatResponse:
-    output = await ChatService(request).run()
+    output = await ChatService(request).complete()
     return ChatResponse(roomId=request.roomId, message=output)
 
 
