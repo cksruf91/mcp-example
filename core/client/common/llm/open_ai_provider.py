@@ -1,4 +1,5 @@
 import os
+from typing import AsyncIterable
 
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
@@ -58,7 +59,8 @@ class OpenAIProvider(metaclass=Singleton):
             strict=True
         )
 
-    def invoke_tools(self, input_list: list[dict], available_tools: list[AvailableTool]) -> tuple[list[dict], OutputMessage, list[McpTool]]:
+    def invoke_tools(self, input_list: list[dict], available_tools: list[AvailableTool]) -> tuple[
+        list[dict], OutputMessage, list[McpTool]]:
         """
         Invoke tools using LLM function calling.
 
@@ -119,5 +121,35 @@ class OpenAIProvider(metaclass=Singleton):
 
         return conversation_history, OutputMessage(text="null")
 
-    def chat_stream(self):
-        ...
+    async def chat_stream(self, input_list: list[dict], mcp_tools: list[McpTool]) -> AsyncIterable[str]:
+        """
+        Generate streaming chat response with tool results.
+
+        Yields:
+            str: Text chunks from the streaming response
+        """
+        conversation_history = input_list.copy()
+
+        for tool in mcp_tools:
+            if tool.output:
+                conversation_history.append({
+                    "type": "function_call_output",
+                    "call_id": tool.call_id,
+                    "output": tool.function_result,
+                })
+
+        parameters = {
+            "model": "gpt-5-mini",
+            "input": conversation_history,
+            "stream": True,
+        }
+        stream = self.openai.responses.create(**parameters)
+
+        for event in stream:
+            if event.type == 'response.created':
+                yield ""
+            elif hasattr(event, 'delta'):
+                yield event.delta
+            elif event.type == 'response.completed':
+                return
+        return

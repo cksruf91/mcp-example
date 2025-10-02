@@ -62,17 +62,18 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 - `ToolListService` - Retrieves available tools from all connected servers
 
 **Key workflow** (in `service/chat.py:ChatService.run()`):
-1. Get available tools from all connected MCP servers
+1. Get available tools from all connected MCP servers (with optional tag filtering)
 2. Call `OpenAIProvider.invoke_tools()` to let LLM decide which tools to invoke
-3. Execute invoked tools in parallel using `asyncio.gather()`
-4. Send tool results back to LLM for final response
+3. Execute invoked tools in parallel using `asyncio.gather()` with `McpTool.call()`
+4. Send tool results back to LLM via `OpenAIProvider.chat()` for final response
 
-**MCP server configuration**: Defined in `common/service.py:ServiceClient.config` as a dictionary mapping server names to HTTP URLs. The `fastmcp.Client` aggregates multiple MCP servers.
+**MCP server configuration**: Defined in `common/service.py:CommonService.config` as a dictionary mapping server names to HTTP URLs. The `fastmcp.Client` aggregates multiple MCP servers.
 
 **LLM integration** (`common/llm/`):
-- `OpenAIProvider` - Wraps OpenAI API, converts MCP tool schemas to OpenAI function format
-- `model.py:McpTool` - Represents an invoked tool with `call()` method to execute via MCP client
-- Uses OpenAI's new `responses.create()` API with function calling
+- `OpenAIProvider` - Wraps OpenAI API, converts MCP tool schemas to OpenAI function format using `_parsing_tool_schema()`
+- `model.py:AvailableTool` - Represents an available MCP tool with tag filtering support
+- `model.py:McpTool` - Represents an invoked tool with `call()` method to execute via MCP client using `client.call_tool_mcp()`
+- Uses OpenAI's `responses.create()` API with function calling (model: `gpt-5-mini`)
 
 **Prompt management**: `PromptManager` (singleton) loads prompts from `resource/prompt.yaml`
 
@@ -83,10 +84,13 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 
 ## Key Files
 
-- `core/client/common/service.py:11` - MCP server URL configuration
-- `core/client/service/chat.py:25` - Main chat workflow orchestration
-- `core/client/common/llm/open_ai_provider.py:62` - LLM tool invocation logic
-- `core/client/common/llm/model.py:16` - MCP tool execution via `McpTool.call()`
+- `core/client/common/service.py:10` - MCP server URL configuration in `CommonService.config`
+- `core/client/service/chat.py:27` - Main chat workflow orchestration in `ChatService.run()`
+- `core/client/service/chat.py:18` - Available tool retrieval with tag filtering
+- `core/client/common/llm/open_ai_provider.py:61` - LLM tool invocation logic in `invoke_tools()`
+- `core/client/common/llm/open_ai_provider.py:92` - Chat response generation in `chat()`
+- `core/client/common/llm/model.py:41` - `McpTool` class definition
+- `core/client/common/llm/model.py:47` - MCP tool execution via `McpTool.call()`
 - `core/server/alpha.py`, `core/server/beta.py` - Example MCP tool servers
 
 ## Dependencies
