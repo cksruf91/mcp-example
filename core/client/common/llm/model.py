@@ -28,6 +28,10 @@ class AvailableTool(BaseModel):
             )
         else:
             super().__init__(**kwargs)
+        self._tool = tool
+
+    def __repr__(self):
+        return repr(self._tool)
 
     def has_tag(self, tag: str) -> bool:
         """Check if tool has specific tag"""

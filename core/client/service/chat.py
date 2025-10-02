@@ -1,10 +1,11 @@
 import asyncio
 from typing import AsyncIterable
 
-from common.llm.model import AvailableTool, McpTool, OutputMessage
+from common.llm.model import McpTool, OutputMessage
 from common.llm.open_ai_provider import OpenAIProvider
 from common.service import CommonService
 from models.request import ChattingRequest
+from service.tool import ToolListService
 
 
 class ChatService(CommonService):
@@ -14,15 +15,6 @@ class ChatService(CommonService):
         self.llm = OpenAIProvider()
         self.request = request
         self.logger.info(f"Initializing Service, Request: {request}")
-
-    async def get_available_tools(self, tags: list[str]) -> list[AvailableTool]:
-        """Get available tools from MCP servers, optionally filtered by tags"""
-        async with self.mcp_servers:
-            available_tools = [AvailableTool(tool) for tool in await self.mcp_servers.list_tools()]
-            if tags:
-                available_tools = [tool for tool in available_tools if tool.has_any_tags(tags)]
-
-        return available_tools
 
     def _initialize_conversation(self) -> list[dict]:
         """Initialize conversation history with system prompt and user message"""
@@ -55,7 +47,7 @@ class ChatService(CommonService):
                 - invoked tools
         """
         conversation_history = self._initialize_conversation()
-        available_tools = await self.get_available_tools(tags=[])
+        available_tools = await ToolListService().run(tags=[])
         conversation_history, output_message, invoked_tools = self.llm.invoke_tools(
             conversation_history,
             available_tools=available_tools

@@ -1,9 +1,10 @@
-from mcp.types import Tool
 from pydantic import BaseModel, Field
+
+from common.llm.model import AvailableTool
 
 
 class ToolListResponse(BaseModel):
-    tools: list[Tool] = Field(default_factory=list, description="Tool list")
+    tools: list[AvailableTool] = Field(default_factory=list, description="Tool list")
 
 
 class ChatResponse(BaseModel):
