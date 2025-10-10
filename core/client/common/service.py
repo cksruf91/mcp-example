@@ -14,6 +14,9 @@ class CommonService:
             },
             "beta": {
                 "url": "http://localhost:9012/mcp"
+            },
+            "resource": {
+                "url": "http://localhost:9013/mcp"
             }
         }
     }

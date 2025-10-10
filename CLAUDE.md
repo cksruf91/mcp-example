@@ -108,3 +108,6 @@ Core dependencies (in `pyproject.toml`):
 - `fastmcp` - MCP protocol implementation
 - `openai` - LLM provider
 - `numpy` - Data processing
+
+## Instruction
+- update CLAUDE.md after modify code

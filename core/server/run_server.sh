@@ -11,9 +11,14 @@ echo "Starting Beta server (port 9012)..."
 fastmcp run beta.py --transport http --port 9012 &
 PID_BETA=$!
 
+echo "Starting Beta server (port 9013)..."
+fastmcp run resource.py --transport http --port 9013 &
+PID_RESO=$!
+
 echo "Both servers are running. Press Ctrl+C to terminate."
 echo "Alpha PID: $PID_ALPHA"
 echo "Beta PID: $PID_BETA"
+echo "Resource PID: $PID_RESO"
 
 # Wait until processes terminate
 wait
