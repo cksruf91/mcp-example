@@ -29,12 +29,12 @@ async def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
             - Text content with the user's name
             - Structured content with the name result
     """
-    await ctx.info('get_user_address tool invoked')
+    await ctx.info('get_user_name tool invoked')
     nams_space = {
         'M4386': 'kimi raikkonen'
     }
     user_name = nams_space.get(user_id)
-    await ctx.info(f'get_user_address return value [{user_name}]')
+    await ctx.info(f'get_user_name return value [{user_name}]')
     return ToolResult(
         content=TextContent(type="text", text=user_name),
         structured_content={"result": user_name}

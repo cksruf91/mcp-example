@@ -19,11 +19,12 @@ class OpenAIProvider(metaclass=Singleton):
         """
         Invoke tools using LLM function calling.
 
+        Args:
+            conversation: OpenAIContextManager containing conversation history and available tools
+
         Returns:
-            tuple containing:
-                - Updated conversation history
-                - Output message from LLM
-                - List of invoked tools
+            list[ResponseOutputItem]: List of output items from LLM response, including
+                messages and function tool calls
         """
 
         response = self.openai.responses.create(
@@ -39,10 +40,12 @@ class OpenAIProvider(metaclass=Singleton):
         """
         Generate chat response with tool results.
 
+        Args:
+            conversation: OpenAIContextManager containing conversation history with tool results
+
         Returns:
-            tuple containing:
-                - Updated conversation history
-                - Output message from LLM
+            Optional[ResponseOutputMessage]: Message output from LLM, or None if no message
+                output is found in the response
         """
         response = self.openai.responses.create(
             model="gpt-5-mini",

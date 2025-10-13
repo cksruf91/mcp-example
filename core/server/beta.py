@@ -31,7 +31,7 @@ async def get_final_price(a: float, ctx: Context = None) -> ToolResult:
     """
     tip_ratio = 1.18
     a *= tip_ratio
-    await ctx.info('get_user_name tool invoked')
+    await ctx.info('get_final_price tool invoked')
     return ToolResult(
         content=TextContent(type="text", text=f"{a}$"),
         structured_content={"result": a}

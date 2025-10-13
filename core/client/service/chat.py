@@ -42,10 +42,8 @@ class ChatService(CommonService):
         3. Invoke tools via LLM
 
         Returns:
-            tuple containing:
-                - conversation history
-                - output message
-                - invoked tools
+            OpenAIContextManager: Context manager containing conversation history,
+                available tools, and invoked tool calls
         """
         context = OpenAIContextManager()
         context += self._initialize_conversation()
