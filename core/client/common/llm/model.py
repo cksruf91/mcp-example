@@ -1,9 +1,9 @@
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastmcp import Client
 from mcp.types import CallToolResult, TextContent, Tool
-from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
+from openai.types.responses import ResponseOutputMessage
 from pydantic import BaseModel, Field
 
 
@@ -54,16 +54,10 @@ class McpTool(BaseModel):
             if isinstance(content, TextContent):
                 self.output.append(content.text)
 
-    @classmethod
-    def from_openai(cls, invoked_tool: ResponseFunctionToolCall) -> "McpTool":
-        return cls(
-            call_id=invoked_tool.call_id,
-            function_name=invoked_tool.name,
-            function_param=json.loads(invoked_tool.arguments),
-        )
-
     @property
     def function_result(self) -> str:
+        if not self.output:
+            raise RuntimeError(f"function [{self.function_name}] with params [{self.function_param}] is not called yet")
         return json.dumps(self.output)
 
 
@@ -73,3 +67,9 @@ class OutputMessage(BaseModel):
     @classmethod
     def from_openai(cls, message: ResponseOutputMessage) -> "OutputMessage":
         return cls(text=message.content[0].text)
+
+
+class PlainInputPrompt(BaseModel):
+    content: str = Field(...)
+    role: Literal['user', 'assistant', 'system', 'developer'] = Field(...)
+    type: Literal['message'] = Field(default='message')

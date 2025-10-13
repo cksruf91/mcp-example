@@ -9,4 +9,5 @@ dependencies = [
     "fastmcp>=2.12.3",
     "numpy>=2.3.3",
     "openai>=1.109.1",
+    "pyjwt>=2.10.1",
 ]

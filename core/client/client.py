@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 
-from route.chat import chat_router
-from route.tool import tool_router
+from route import ROUTES
 
 
 def main():
@@ -11,8 +10,8 @@ def main():
         version="1.0"
     )
 
-    app.include_router(tool_router)
-    app.include_router(chat_router)
+    for router in ROUTES:
+        app.include_router(router)
 
     @app.get('/ping')
     async def ping():
