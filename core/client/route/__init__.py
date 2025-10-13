@@ -1,9 +1,9 @@
-from .auth import auth_router
+from .test import test_router
 from .chat import chat_router
 from .tool import tool_router
 
 ROUTES = [
-    auth_router,
     tool_router,
     chat_router,
+    test_router,
 ]
