@@ -9,5 +9,5 @@ class PromptManager(metaclass=Singleton):
     _file = Path('.').joinpath('resource').joinpath('prompt.yaml')
     _prompt = yaml.safe_load(_file.open('r'))
 
-    _v1 = _prompt.get('mcp_client').get('v1')
-    system_prompt = _v1.get('system_prompt')
+    _client = _prompt.get('mcp_client')
+    system_prompt = _client.get('system_prompt').get('v1')

@@ -1,6 +1,6 @@
 mcp_client:
-  v1:
+  system_prompt:
     description: "mcp client system prompt"
-    system_prompt: "
+    v1: "
 you're help full assistant
 "

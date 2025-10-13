@@ -7,6 +7,7 @@ from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem)
 
 from common.functional.singleton import Singleton
 from common.llm.openai_provider.message import OpenAIContextManager
+from common.utils import get_logger
 
 
 class OpenAIProvider(metaclass=Singleton):
@@ -14,6 +15,7 @@ class OpenAIProvider(metaclass=Singleton):
         if api_key is None:
             api_key = os.environ.get('OPENAI_API_KEY')
         self.openai = OpenAI(api_key=api_key)
+        self.logger = get_logger()
 
     def invoke_tools(self, conversation: OpenAIContextManager) -> list[ResponseOutputItem]:
         """
@@ -29,7 +31,6 @@ class OpenAIProvider(metaclass=Singleton):
 
         response = self.openai.responses.create(
             model='gpt-5-mini',
-            instructions=conversation.instruction,
             tools=conversation.get_available_tools(),
             input=conversation.to_list(),
             stream=False,
@@ -53,9 +54,9 @@ class OpenAIProvider(metaclass=Singleton):
             input=conversation.to_list(),
             stream=False,
         )
-        print("--------------chat_complete---------------")
+        self.logger.info("--------------chat_complete---------------")
         for output in response.output:
-            print(output)
+            self.logger.info(output)
             if output.type == 'message':
                 return output
         return None
