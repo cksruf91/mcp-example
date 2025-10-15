@@ -7,7 +7,11 @@ from common.functional.singleton import Singleton
 
 class PromptManager(metaclass=Singleton):
     _file = Path('.').joinpath('resource').joinpath('prompt.yaml')
-    _prompt = yaml.safe_load(_file.open('r'))
+    _prompt = yaml.safe_load(_file.open('r')).get('mcp_client')
 
-    _client = _prompt.get('mcp_client')
-    system_prompt = _client.get('system_prompt').get('v1')
+    _chat = _prompt.get('chat')
+    system_prompt = _chat.get('system_prompt').get('v1')
+
+    _chat = _prompt.get('pne')
+    planning_instruction_prompt = _chat.get('planning_instruction_prompt').get('v1')
+    replanning_prompt = _chat.get('replanning_prompt').get('v1')

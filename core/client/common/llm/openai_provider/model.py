@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Optional, AsyncIterable
+from typing import Optional, AsyncIterable, TypeVar
 
 from openai import OpenAI
 from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem)
@@ -8,6 +8,8 @@ from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem)
 from common.functional.singleton import Singleton
 from common.llm.openai_provider.message import OpenAIContextManager
 from common.utils import get_logger
+
+StructureT = TypeVar('StructureT')
 
 
 class OpenAIProvider(metaclass=Singleton):
@@ -84,3 +86,15 @@ class OpenAIProvider(metaclass=Singleton):
             elif event.type == 'response.completed':
                 return
         return
+
+    async def structured_output(self, conversation: OpenAIContextManager, structure: StructureT) -> StructureT:
+        """
+        """
+        response = self.openai.responses.parse(
+            model="gpt-5-mini",
+            instructions=conversation.instruction,
+            input=conversation.to_list(),
+            text_format=structure,
+        )
+        self.logger.info("--------------chat_complete---------------")
+        return response.output_parsed

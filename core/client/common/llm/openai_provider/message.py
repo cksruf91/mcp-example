@@ -52,7 +52,7 @@ def _to_open_ai_function_tool_param(param: AvailableTool) -> FunctionToolParam:
         name=param.name,
         description=param.description,
         parameters=properties,
-        strict=True
+        strict=param.strict,
     )
 
 

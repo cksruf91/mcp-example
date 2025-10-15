@@ -1,5 +1,4 @@
 import logging
-import sys
 
 
 def get_logger(room_id: str = None) -> logging.LoggerAdapter:

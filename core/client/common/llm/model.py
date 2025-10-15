@@ -14,6 +14,7 @@ class AvailableTool(BaseModel):
     input_schema: dict[str, Any] = Field(..., description="Tool input schema")
     tags: list[str] = Field(default_factory=list, description="Tool tags")
     meta: dict[str, Any] = Field(default_factory=dict, description="Tool metadata")
+    strict: bool = Field(default=True, description="Tool strict mode")
 
     def __init__(self, tool: Tool = None, **kwargs):
         """Initialize from MCP Tool or direct parameters"""
