@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Handle Ctrl+C signal
-trap 'echo -e "\nShutting down both servers..."; kill $PID_ALPHA $PID_BETA 2>/dev/null; exit 0' SIGINT
+trap 'echo -e "\nShutting down all servers..."; kill $PID_ALPHA $PID_BETA $PID_RESO 2>/dev/null; exit 0' SIGINT
 
 echo "Starting Alpha server (port 9011)..."
 fastmcp run alpha.py --transport http --port 9011 &

@@ -74,5 +74,38 @@ async def get_user_address(user_id: str, ctx: Context = None) -> ToolResult:
     )
 
 
+@mcp.tool(
+    tags={'alpha'},
+    meta={'author': 'anonymous'},
+    enabled=True
+)
+async def get_user_booked_item(user_id: str, ctx: Context = None) -> ToolResult:
+    """
+    Retrieves a list of items booked by a user based on their user ID.
+
+    This function takes a user ID string and returns the corresponding list of booked items
+    from a predefined mapping. If the user ID is not found, returns None.
+
+    Args:
+        user_id (str): The ID of the user to look up
+        ctx : internal use only, ignore this parameter
+
+    Returns:
+        ToolResult: Result object containing:
+            - Text content with the list of items booked by the user
+            - Structured content with the booked items result
+    """
+    await ctx.info('get_user_booked_item tool invoked')
+    nams_space = {
+        'M4386': ["BALI004", "TOKYO002"]
+    }
+    booked_item = nams_space.get(user_id)
+    await ctx.info(f'get_user_booked_item return value [{booked_item}]')
+    return ToolResult(
+        content=TextContent(type="text", text=f"{booked_item}"),
+        structured_content={"result": booked_item}
+    )
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -9,5 +9,9 @@ class ChattingRequest(BaseModel):
 
 
 class PlanAndExecuteChattingRequest(BaseModel):
-    question: str = Field(default="LangGraph 의 핵심 장단점과 LangGraph 를 사용하는 이유는 무엇인가?")
+    question: str = Field(
+        default="Tell me the name of user 'M4386', "
+                "their reserved product list, the detailed information of the reserved products, "
+                "and the total sum of the prices"
+    )
     roomId: str = Field(default_factory=lambda: str(uuid.uuid4()))

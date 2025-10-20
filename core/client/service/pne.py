@@ -1,11 +1,14 @@
+import asyncio
 from typing import Union, Literal, List
 
 from pydantic import BaseModel, Field
 
+from common.llm.model import McpTool
 from common.llm.model import PlainInputPrompt
 from common.llm.openai_provider.model import OpenAIProvider, OpenAIContextManager
 from common.service import CommonService
 from models.request import PlanAndExecuteChattingRequest
+from service.tool import ToolListService
 
 
 class Step(BaseModel):
@@ -14,9 +17,14 @@ class Step(BaseModel):
     This class defines a single step or action in a larger plan, containing:
     - A detailed description explaining what this step accomplishes
     - A command prompt that will be executed to carry out this step
+    - A type of Step that describes what kind of step this step is.
     """
     desc: str = Field(..., description='Detailed description of the plan')
     prompt: str = Field(..., description='Command prompt for executing the plan')
+    type: Literal['tool_call', 'assistant'] = Field(
+        default='assistant',
+        description='type of Step,\nwhen calling a function is needed: tool_call\n'
+                    'when assistant message is needed: assistant')
 
 
 class Plan(BaseModel):
@@ -63,6 +71,16 @@ class PlanAndExecuteChatService(CommonService):
         self.request = request
         self.logger.info(f"Initializing Service, Request: {request}")
 
+    async def _execute_tools(self, invoked_tools: list[McpTool]) -> None:
+        """Execute invoked MCP tools in parallel and log results"""
+        async with self.mcp_servers:
+            await asyncio.gather(
+                *[tool.call(client=self.mcp_servers) for tool in invoked_tools]
+            )
+
+        for tool in invoked_tools:
+            self.logger.info(f"tool result: {tool}")
+
     async def complete(self) -> str:
         # 계획 수립을 위한 프롬프트 템플릿 생성
         main_context = OpenAIContextManager()
@@ -71,34 +89,43 @@ class PlanAndExecuteChatService(CommonService):
             PlainInputPrompt(role='user', content=self.request.question)
         )
         self.logger.info("planner prompt set")
+        main_context += await ToolListService().run(tags=[])
+        main_context += self.llm.invoke_tools(main_context)
+        await self._execute_tools(main_context.get_invoked_tools())
+        self.logger.info("invoke tool")
+        print(main_context)
         output = await self.llm.structured_output(main_context, structure=Action)
-        if output.response.type == 'plan':
-            print('-------- first plan ---------')
-            for step in output.response.steps:
-                print(step)
-        self.logger.info("planner created")
 
+        self.logger.info(f"execution plan")
         while output.response.type == 'plan':
-            step = output.response.steps.pop(0)
+            self.logger.info("\tL current plan")
+            for step in output.response.steps:
+                self.logger.info(f"\t\tL step: {step}")
+            self.logger.info('')
+            step: Step = output.response.steps.pop(0)
+            self.logger.info(f"\tL current step: {step}")
             org_plan = output.response.steps
-            context = OpenAIContextManager()
-            context.append(PlainInputPrompt(role='user', content=step.prompt))
-            output = await self.llm.structured_output(context, structure=Response)
-            print('-------- execute plan result ---------')
-            print(output.message)
+
+            if step.type == 'assistant':
+                self.logger.info(f"\tL assistant step: {step.prompt}")
+                main_context += [PlainInputPrompt(role='user', content=step.prompt)]
+                output = await self.llm.structured_output(main_context, structure=Response)
+                main_context += [PlainInputPrompt(role='assistant', content=output.message)]
+
+            elif step.type == 'tool_call':
+                self.logger.info(f"\tL tool call: {step.prompt}")
+                main_context += self.llm.invoke_tools(main_context)
+                await self._execute_tools(main_context.get_invoked_tools())
+
+            else:
+                raise Exception(f"unknown step type: {step.type}")
 
             replanning_prompt = self.prompt_manager.replanning_prompt.format(
                 input=self.request.question,
                 plan=org_plan,
-                past_steps=(step.prompt, output.message)
             )
-            print('-------- replanning prompt ---------')
-            context = OpenAIContextManager()
-            context.append(PlainInputPrompt(role='user', content=replanning_prompt))
-            print(context)
-            output = await self.llm.structured_output(context, structure=Action)
-            print(output)
-
-        print('-------- final answer ---------')
+            main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
+            # print(main_context)
+            output = await self.llm.structured_output(main_context, structure=Action)
         print(output.response.message)
         return output.response.message

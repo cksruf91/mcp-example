@@ -1,7 +1,7 @@
 import json
 from typing import Any, TypeAlias, Union, Annotated, Optional
 
-from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, FunctionToolParam
+from openai.types.responses import ResponseFunctionToolCall, FunctionToolParam
 
 from common.llm.model import AvailableTool, McpTool, OutputMessage, PlainInputPrompt
 
@@ -37,14 +37,25 @@ def _to_open_ai_function_tool_param(param: AvailableTool) -> FunctionToolParam:
             strict=True)
     """
     schema = param.input_schema
-    properties = {"type": "object", "additionalProperties": False, 'properties': {}}
+    properties = {
+        "name": param.name,
+        "description": param.description,
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {}
+    }
     for key in schema['properties'].keys():
+        _type = schema['properties'][key].get('type')
         properties['properties'].update({
             key: {
-                'type': schema['properties'][key].get('type'),
+                'type': _type,
                 'description': schema['properties'][key].get('description', '')
             }
         })
+        if _type == 'array':
+            properties['properties'][key].update({
+                'items': schema['properties'][key]['items']
+            })
     properties['required'] = schema.get('required')
 
     return FunctionToolParam(
@@ -77,7 +88,7 @@ class OpenAIContextManager:
     def get_invoked_tools(self) -> list[McpTool]:
         invoked_tools = []
         for p in self.prompts:
-            if isinstance(p, McpTool):
+            if isinstance(p, McpTool) and (not p.output):
                 invoked_tools.append(p)
         return invoked_tools
 
@@ -95,7 +106,16 @@ class OpenAIContextManager:
         return message[-1]
 
     def append(self, prompt: Any):
-        if isinstance(prompt, ResponseFunctionToolCall):
+        prompt_type = getattr(prompt, 'type', None)
+        if prompt_type is None:
+            if isinstance(prompt, AvailableTool):
+                self.available_tools.append(prompt)
+            elif isinstance(prompt, PlainInputPrompt) and prompt.role == 'system':
+                self.instruction = prompt.content
+            else:
+                self.prompts.append(prompt)
+
+        elif prompt_type == 'function_call':
             self.prompts.append(prompt)
             self.prompts.append(
                 McpTool(
@@ -104,11 +124,7 @@ class OpenAIContextManager:
                     function_param=json.loads(prompt.arguments),
                 )
             )
-        elif isinstance(prompt, AvailableTool):
-            self.available_tools.append(prompt)
-        elif isinstance(prompt, PlainInputPrompt) and prompt.role == 'system':
-            self.instruction = prompt.content
-        elif isinstance(prompt, ResponseOutputMessage):
+        elif prompt_type == 'message':
             self.prompts.append(
                 PlainInputPrompt(
                     role=prompt.role, content=prompt.content[0].text
