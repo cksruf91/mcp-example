@@ -17,6 +17,7 @@ class OpenAIProvider(metaclass=Singleton):
         if api_key is None:
             api_key = os.environ.get('OPENAI_API_KEY')
         self.openai = OpenAI(api_key=api_key)
+        self.model = "gpt-4.1-mini"
         self.logger = get_logger()
 
     def invoke_tools(self, conversation: OpenAIContextManager) -> list[ResponseOutputItem]:
@@ -32,7 +33,7 @@ class OpenAIProvider(metaclass=Singleton):
         """
 
         response = self.openai.responses.create(
-            model='gpt-5-mini',
+            model=self.model,
             tools=conversation.get_available_tools(),
             input=conversation.to_list(),
             stream=False,
@@ -51,7 +52,7 @@ class OpenAIProvider(metaclass=Singleton):
                 output is found in the response
         """
         response = self.openai.responses.create(
-            model="gpt-5-mini",
+            model=self.model,
             instructions=conversation.instruction,
             input=conversation.to_list(),
             stream=False,
@@ -71,7 +72,7 @@ class OpenAIProvider(metaclass=Singleton):
             str: Text chunks from the streaming response
         """
         stream = self.openai.responses.create(
-            model="gpt-5-mini",
+            model=self.model,
             instructions=conversation.instruction,
             input=conversation.to_list(),
             stream=True,
@@ -90,11 +91,23 @@ class OpenAIProvider(metaclass=Singleton):
     async def structured_output(self, conversation: OpenAIContextManager, structure: StructureT) -> StructureT:
         """
         """
+        self.logger.info("call structured_output")
         response = self.openai.responses.parse(
-            model="gpt-5-mini",
+            model=self.model,
             instructions=conversation.instruction,
             input=conversation.to_list(),
             text_format=structure,
         )
-        self.logger.info("--------------chat_complete---------------")
+        return response.output_parsed
+
+    async def structured_output_with_tools(self, conversation: OpenAIContextManager, structure: StructureT) -> StructureT:
+        """
+        """
+        self.logger.info("call structured_output_with_tools")
+        response = self.openai.responses.parse(
+            model=self.model,
+            instructions=conversation.instruction,
+            input=conversation.to_list(),
+            text_format=structure,
+        )
         return response.output_parsed

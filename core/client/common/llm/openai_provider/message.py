@@ -83,6 +83,9 @@ class OpenAIContextManager:
         _text += "\t" + f"[instruction]: {self.instruction}" + "\n"
         for prompt in self.to_list():
             _text += "\t" + repr(prompt) + '\n'
+        _text += "\t" + f"[Available Tools]" + "\n"
+        for tool in self.available_tools:
+            _text += "\t" + repr(tool) + '\n'
         return _text
 
     def get_invoked_tools(self) -> list[McpTool]:
@@ -107,7 +110,7 @@ class OpenAIContextManager:
 
     def append(self, prompt: Any):
         prompt_type = getattr(prompt, 'type', None)
-        if prompt_type is None:
+        if (prompt_type is None) or (prompt_type == 'custom_message'):
             if isinstance(prompt, AvailableTool):
                 self.available_tools.append(prompt)
             elif isinstance(prompt, PlainInputPrompt) and prompt.role == 'system':

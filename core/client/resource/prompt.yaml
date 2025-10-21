@@ -6,14 +6,13 @@ mcp_client:
 you're help full assistant
 "
   pne:
-    user_question:
-      description: "user's question to guide llm for 'plan and execute'"
-      v1: ""
     planning_instruction_prompt:
       description: "plan and execute manner chat system prompt"
+
       v1: "For the given objective, come up with a simple step by step plan.
 This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps.
 The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps."
+
       v2: "For the given objective, first assess whether a step-by-step plan is necessary.
 
 If the objective can be answered directly:
@@ -26,8 +25,16 @@ If a step-by-step plan is needed:
 - Make sure each step has all required information
 - The final step should produce the complete answer
 "
+
+      v3: "For the given objective, come up with a simple step by step plan.
+- Break down into individual tasks that will yield the correct answer
+- Do not add any superfluous steps
+- Make sure each step has all required information
+- The final step should produce the complete answer
+"
     replanning_prompt:
       description: ""
+
       v1: "For the given objective, first assess whether a step-by-step plan is necessary.
 
 If the objective can be answered directly:
@@ -48,3 +55,27 @@ Your original plan was this:
 
 Update your plan accordingly. If no more steps are needed and you can return to the user, then respond with that. Otherwise, 
 fill out the plan. Only add steps to the plan that still NEED to be done. Do not return previously done steps as part of the plan."
+
+      v2: "For the given objective, first assess whether a step-by-step plan is necessary.
+
+if need more steps Please review the plan and update it accordingly. Only include the steps that still need to be completed
+  - DO NOT INCLUDE any steps that have already been completed.
+  - Break down into individual tasks that will yield the correct answer
+  - Do not add any superfluous steps
+  - Make sure each step has all required information
+  - The final step should produce the complete answer
+  - update the plan with only the remaining necessary steps to reach the objective
+
+If no more steps are needed, you can provide a final response to the user.
+  - considering previous steps and answering according to user requirements
+
+Your objective was this:
+{input}
+
+Your original plan was this:
+{plan}
+
+Past steps was this:
+{past_step}
+
+"

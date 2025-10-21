@@ -73,4 +73,4 @@ class OutputMessage(BaseModel):
 class PlainInputPrompt(BaseModel):
     content: str = Field(...)
     role: Literal['user', 'assistant', 'system', 'developer'] = Field(...)
-    type: Literal['message'] = Field(default='custom_message')
+    type: Literal['custom_message'] = Field(default='custom_message')

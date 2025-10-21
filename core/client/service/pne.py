@@ -16,11 +16,9 @@ class Step(BaseModel):
 
     This class defines a single step or action in a larger plan, containing:
     - A detailed description explaining what this step accomplishes
-    - A command prompt that will be executed to carry out this step
     - A type of Step that describes what kind of step this step is.
     """
     desc: str = Field(..., description='Detailed description of the plan')
-    prompt: str = Field(..., description='Command prompt for executing the plan')
     type: Literal['tool_call', 'assistant'] = Field(
         default='assistant',
         description='type of Step,\nwhen calling a function is needed: tool_call\n'
@@ -41,11 +39,11 @@ class Response(BaseModel):
     """
     A class representing a final response in the plan-and-execute workflow.
     
-    This class is used when no further planning steps are needed and a final answer
-    can be returned to the user. It extends BaseModel to provide validation and
-    serialization capabilities.
+    This class is used when no further planning steps are needed
+    - message: final answer for return to user, considering previous steps and answering according to user requirements
+    - type: A marker indicating this object is an instance of the Response class
     """
-    message: str = Field(..., description='The response message')
+    message: str = Field(..., description='final response message to user')
     type: Literal['response'] = Field(default="response",
                                       description="A marker indicating this object is an instance of the Response class")
 
@@ -55,7 +53,7 @@ class Action(BaseModel):
 
     The response field can contain either:
     1. A Plan object: When a structured plan with multiple steps is needed to complete the task
-    2. A Response object: When no more planning is required and a final answer can be returned to the user
+    2. A Response object: When no more planning is required, and a final answer can be returned to the user
 
     Each Plan object contains sequential steps that need to be executed in order,
     while a Response object contains the final answer to be returned to the user.
@@ -88,44 +86,51 @@ class PlanAndExecuteChatService(CommonService):
             PlainInputPrompt(role='system', content=self.prompt_manager.planning_instruction_prompt),
             PlainInputPrompt(role='user', content=self.request.question)
         )
-        self.logger.info("planner prompt set")
         main_context += await ToolListService().run(tags=[])
-        main_context += self.llm.invoke_tools(main_context)
-        await self._execute_tools(main_context.get_invoked_tools())
-        self.logger.info("invoke tool")
-        print(main_context)
-        output = await self.llm.structured_output(main_context, structure=Action)
+        output = await self.llm.structured_output_with_tools(main_context, structure=Action)
 
+        past_step = []
         self.logger.info(f"execution plan")
         while output.response.type == 'plan':
+            self.logger.info("-------------------step-execute------------------")
             self.logger.info("\tL current plan")
             for step in output.response.steps:
                 self.logger.info(f"\t\tL step: {step}")
-            self.logger.info('')
-            step: Step = output.response.steps.pop(0)
+
+            step: Step = output.response.steps[0]
             self.logger.info(f"\tL current step: {step}")
             org_plan = output.response.steps
 
             if step.type == 'assistant':
-                self.logger.info(f"\tL assistant step: {step.prompt}")
-                main_context += [PlainInputPrompt(role='user', content=step.prompt)]
+                self.logger.info(f"\tL assistant step: {step.desc}")
+                main_context += [
+                    PlainInputPrompt(role='system', content=self.prompt_manager.system_prompt),
+                    PlainInputPrompt(role='assistant', content=step.desc)
+                ]
                 output = await self.llm.structured_output(main_context, structure=Response)
-                main_context += [PlainInputPrompt(role='assistant', content=output.message)]
+                past_step.append(
+                    (step.desc, output.message)
+                )
 
             elif step.type == 'tool_call':
-                self.logger.info(f"\tL tool call: {step.prompt}")
                 main_context += self.llm.invoke_tools(main_context)
-                await self._execute_tools(main_context.get_invoked_tools())
+                invoked_tools = main_context.get_invoked_tools()
+                if invoked_tools:
+                    self.logger.info("\t\tL invoke tool")
+                    await self._execute_tools(invoked_tools)
+                self.logger.info(f"\tL tool call: {step.desc}")
 
             else:
                 raise Exception(f"unknown step type: {step.type}")
 
             replanning_prompt = self.prompt_manager.replanning_prompt.format(
                 input=self.request.question,
-                plan=org_plan,
+                plan=org_plan, past_step=past_step
             )
             main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
-            # print(main_context)
-            output = await self.llm.structured_output(main_context, structure=Action)
+            self.logger.info(f"current prompt")
+            self.logger.info(main_context)
+            output = await self.llm.structured_output_with_tools(main_context, structure=Action)
+
         print(output.response.message)
         return output.response.message
