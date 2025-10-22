@@ -103,9 +103,14 @@ class PlanAndExecuteChatService(CommonService):
 
             if step.type == 'assistant':
                 self.logger.info(f"\tL assistant step: {step.desc}")
-                main_context += [
-                    PlainInputPrompt(role='system', content=self.prompt_manager.system_prompt),
-                    PlainInputPrompt(role='assistant', content=step.desc)
+                sub_context = OpenAIContextManager()
+                plan_execute_prompt = self.prompt_manager.plan_execute_prompt.format(
+                    input=self.request.question,
+                    plan=org_plan, past_step='\n'.join([str(s) for s in past_step])
+                )
+                sub_context += [
+                    PlainInputPrompt(role='system', content=plan_execute_prompt),
+                    PlainInputPrompt(role='user', content=step.desc)
                 ]
                 output = await self.llm.structured_output(main_context, structure=Response)
                 past_step.append(
@@ -125,7 +130,7 @@ class PlanAndExecuteChatService(CommonService):
 
             replanning_prompt = self.prompt_manager.replanning_prompt.format(
                 input=self.request.question,
-                plan=org_plan, past_step=past_step
+                plan=org_plan, past_step='\n'.join([str(s) for s in past_step])
             )
             main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
             self.logger.info(f"current prompt")

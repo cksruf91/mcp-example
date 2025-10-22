@@ -15,3 +15,4 @@ class PromptManager(metaclass=Singleton):
     _chat = _prompt.get('pne')
     planning_instruction_prompt = _chat.get('planning_instruction_prompt').get('v3')
     replanning_prompt = _chat.get('replanning_prompt').get('v2')
+    plan_execute_prompt = _chat.get('plan_execute_prompt').get('v1')

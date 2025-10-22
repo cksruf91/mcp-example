@@ -21,7 +21,7 @@ class ChatService(CommonService):
         """Initialize conversation history with system prompt and user message"""
         return [
             PlainInputPrompt(role='system', content=self.prompt_manager.system_prompt),
-            PlainInputPrompt(role='user', content=self.request.text)
+            PlainInputPrompt(role='user', content=self.request.question)
         ]
 
     async def _execute_tools(self, invoked_tools: list[McpTool]) -> None:

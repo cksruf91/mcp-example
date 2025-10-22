@@ -33,7 +33,7 @@ If a step-by-step plan is needed:
 - The final step should produce the complete answer
 "
     replanning_prompt:
-      description: ""
+      description: "replanning prompt"
 
       v1: "For the given objective, first assess whether a step-by-step plan is necessary.
 
@@ -67,15 +67,34 @@ if need more steps Please review the plan and update it accordingly. Only includ
   - update the plan with only the remaining necessary steps to reach the objective
 
 If no more steps are needed, you can provide a final response to the user.
-  - considering previous steps and answering according to user requirements
+  - Return the final answer to the user based on the previously collected information from past steps.
+  - Include all relevant information that was gathered in past steps in your final response to ensure completeness.
 
 Your objective was this:
-{input}
+\n{input}
 
 Your original plan was this:
-{plan}
+\n{plan}
 
 Past steps was this:
-{past_step}
+[
+\n{past_step}
+]
 
+"
+
+    plan_execute_prompt:
+      description: ""
+      v1: "
+Your original plan was this:
+ [{plan}]
+
+Past steps was this:
+[
+ {past_step}
+]
+
+As part of above plan, you're tasked for executing following question
+ - DO NOT include information that was already mentioned in past steps.
+ - focus on this task
 "
