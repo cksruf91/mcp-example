@@ -108,6 +108,7 @@ class PlanAndExecuteChatService(CommonService):
     async def complete(self) -> str:
         # 계획 수립을 위한 프롬프트 템플릿 생성
         main_context = OpenAIContextManager()
+        main_context += [PlainInputPrompt(role=role, content=message) for role, message in self.request.history]
         main_context += (
             PlainInputPrompt(role='system', content=self.prompt_manager.planning_instruction_prompt),
             PlainInputPrompt(role='user', content=self.request.question)

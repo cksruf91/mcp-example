@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -6,7 +7,7 @@ from pydantic import BaseModel, Field
 class ChattingRequest(BaseModel):
     question: str = Field(default="tell me the name and address for userID M4386")
     roomId: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    history: list[tuple[str, str]] = Field(
+    history: list[tuple[Literal['user', 'assistant'], str]] = Field(
         default_factory=lambda: [],
         description="chat history, format: [(\"user\",\"hello\"), (\"assistant\": \"hi! how are you doing?\nhow can i help you?\")]"
     )
@@ -19,7 +20,7 @@ class PlanAndExecuteChattingRequest(BaseModel):
                 "and the total sum of the prices"
     )
     roomId: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    history: list[tuple[str, str]] = Field(
+    history: list[tuple[Literal['user', 'assistant'], str]] = Field(
         default_factory=lambda: [],
         description="chat history, format: [(\"user\",\"hello\"), (\"assistant\": \"hi! how are you doing?\nhow can i help you?\")]"
     )
