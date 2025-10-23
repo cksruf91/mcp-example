@@ -173,7 +173,9 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 
 Simple single-page application for testing MCP client functionality:
 - **Technology**: Vanilla JavaScript, HTML5, CSS3 (no frameworks)
-- **File**: `index.html` - All-in-one SPA with embedded styles and scripts
+- **Files**:
+  - `index.html` - Main HTML structure with embedded CSS styles
+  - `app.js` - JavaScript application logic and API integration
 - **Features**:
   - Chat interface with message history
   - Mode toggle for normal vs. streaming responses
@@ -181,8 +183,8 @@ Simple single-page application for testing MCP client functionality:
   - Real-time message display with animations
 - **API Integration**: Calls FastAPI client endpoints at `http://localhost:8000`
 - **Modes**:
-  - Normal mode: Fetches complete response from `/chat/main/complete`
-  - Stream mode: Receives Server-Sent Events (SSE) from `/chat/main/stream`
+  - Normal mode: Fetches complete response from `/pne/complete`
+  - Stream mode: Receives Server-Sent Events (SSE) from `/pne/stream`
 
 ### Data Models
 
@@ -248,7 +250,8 @@ Simple single-page application for testing MCP client functionality:
 - `core/server/beta.py` - Beta MCP server (price calculation tools)
 
 **Frontend App**:
-- `core/app/index.html` - Frontend web interface for testing MCP client
+- `core/app/index.html` - Frontend web interface HTML structure and CSS styles
+- `core/app/app.js` - JavaScript application logic and API integration
 
 ## Dependencies
 
