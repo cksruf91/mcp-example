@@ -2,6 +2,7 @@ import asyncio
 import os
 from typing import Optional, AsyncIterable, TypeVar
 
+from langchain_openai import ChatOpenAI
 from openai import OpenAI
 from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem)
 
@@ -19,6 +20,10 @@ class OpenAIProvider(metaclass=Singleton):
         self.openai = OpenAI(api_key=api_key)
         self.model = "gpt-4.1-mini"
         self.logger = get_logger()
+
+    def get_langchain_object(self, **kwargs) -> ChatOpenAI:
+        """ Creates and returns an instance of ChatOpenAI configured with the specified model. """
+        return ChatOpenAI(model=self.model, **kwargs)
 
     def invoke_tools(self, conversation: OpenAIContextManager) -> list[ResponseOutputItem]:
         """

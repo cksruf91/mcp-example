@@ -1,7 +1,6 @@
 import asyncio
 from typing import Union, Literal, List
 
-from openapi_core.unmarshalling.schemas import oas31_response_schema_unmarshallers_factory
 from pydantic import BaseModel, Field
 
 from common.llm.model import McpTool
@@ -80,6 +79,32 @@ class PlanAndExecuteChatService(CommonService):
         for tool in invoked_tools:
             self.logger.info(f"tool result: {tool}")
 
+    async def execute_task(self, response: Plan) -> tuple[str, str]:
+        step: Step = response.steps[0]
+        self.logger.info(f"\tL current step: {step}")
+        org_plan = [f"{i + 1}.{step.task}\n" for i, step in enumerate(response.steps)]
+
+        sub_context = OpenAIContextManager()
+        user_prompt = self.prompt_manager.plan_execute_user_prompt.format(
+            org_plan='\n'.join(org_plan), task=step.task
+        )
+        sub_context += (
+            PlainInputPrompt(role='system', content=self.prompt_manager.plan_execute_system_prompt),
+            PlainInputPrompt(role='user', content=user_prompt)
+        )
+        if step.type == 'tool_call':
+            sub_context += await ToolListService().run(tags=[])
+            sub_context += self.llm.invoke_tools(sub_context)
+            invoked_tools = sub_context.get_invoked_tools()
+            if invoked_tools:
+                self.logger.info("\t\tL invoke tool")
+                await self._execute_tools(invoked_tools)
+            self.logger.info(f"\tL tool call: {step.task}")
+        self.logger.info(f"\tL assistant step: {step.task}")
+
+        output = await self.llm.structured_output(sub_context, structure=Response)
+        return step.task, output.message
+
     async def complete(self) -> str:
         # 계획 수립을 위한 프롬프트 템플릿 생성
         main_context = OpenAIContextManager()
@@ -98,40 +123,13 @@ class PlanAndExecuteChatService(CommonService):
             for step in output.response.steps:
                 self.logger.info(f"\t\tL step: {step}")
 
-            step: Step = output.response.steps[0]
-            self.logger.info(f"\tL current step: {step}")
-            org_plan = output.response.steps
-
-            if step.type == 'assistant':
-                self.logger.info(f"\tL assistant step: {step.task}")
-                sub_context = OpenAIContextManager()
-                org_plan = [f"{i+1}.{step.task}\n" for i, step in enumerate(org_plan)]
-                user_prompt = self.prompt_manager.plan_execute_user_prompt.format(
-                    org_plan='\n'.join(org_plan), task=step.task
-                )
-                sub_context += [
-                    PlainInputPrompt(role='system', content=self.prompt_manager.plan_execute_system_prompt),
-                    PlainInputPrompt(role='user', content=user_prompt)
-                ]
-                output = await self.llm.structured_output(sub_context, structure=Response)
-                past_step.append(
-                    (step.task, output.message)
-                )
-
-            elif step.type == 'tool_call':
-                main_context += self.llm.invoke_tools(main_context)
-                invoked_tools = main_context.get_invoked_tools()
-                if invoked_tools:
-                    self.logger.info("\t\tL invoke tool")
-                    await self._execute_tools(invoked_tools)
-                self.logger.info(f"\tL tool call: {step.task}")
-
-            else:
-                raise Exception(f"unknown step type: {step.type}")
+            task, message = await self.execute_task(output.response)
+            past_step.append((task, message))
+            main_context.append(PlainInputPrompt(role='assistant', content=message))
 
             replanning_prompt = self.prompt_manager.replanning_prompt.format(
                 input=self.request.question,
-                plan=org_plan, past_step='\n'.join([str(s) for s in past_step])
+                plan=output.response.steps, past_step='\n'.join([str(s) for s in past_step])
             )
             main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
             self.logger.info(f"current prompt")

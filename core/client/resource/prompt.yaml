@@ -10,10 +10,13 @@ you're help full assistant
       description: "plan and execute manner chat system prompt"
 
       v3: "For the given objective, come up with a simple step by step plan.
-- Break down into individual tasks that will yield the correct answer
+- Break down into individual tasks that will yield the correct answer 
 - Do not add any superfluous steps
+- Reading the task content and determine if each step requires the use of tools
 - Make sure each step has all required information
 - The final step should produce the complete answer
+
+Please provide responses in markdown format.
 "
     replanning_prompt:
       description: "replanning prompt"
@@ -30,6 +33,7 @@ if need more steps Please review the plan and update it accordingly. Only includ
 If no more steps are needed, you can provide a final response to the user.
   - Return the final answer to the user based on the previously collected information from past steps.
   - Include all relevant information that was gathered in past steps in your final response to ensure completeness.
+  - Please provide responses in markdown format.
 
 Your objective was this:
 \n{input}
@@ -53,4 +57,29 @@ For the following plan:
 {org_plan}
 
 You are tasked with executing step 1, {task}.
+"
+  langchain:
+    task_executor: "
+You are a helpful assistant.
+"
+    planner: "
+For the given objective, come up with a simple step by step plan. \
+This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps. \
+The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps.
+"
+    replanner: "
+For the given objective, come up with a simple step by step plan. \
+This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps. \
+The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps.
+
+Your objective was this:
+{input}
+
+Your original plan was this:
+{plan}
+
+You have currently done the follow steps:
+{past_steps}
+
+Update your plan accordingly. If no more steps are needed and you can return to the user, then respond with that. Otherwise, fill out the plan. Only add steps to the plan that still NEED to be done. Do not return previously done steps as part of the plan.
 "
