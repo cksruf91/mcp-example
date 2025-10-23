@@ -1,6 +1,7 @@
 import asyncio
 from typing import Union, Literal, List
 
+from openapi_core.unmarshalling.schemas import oas31_response_schema_unmarshallers_factory
 from pydantic import BaseModel, Field
 
 from common.llm.model import McpTool
@@ -15,10 +16,10 @@ class Step(BaseModel):
     """A class representing a single step in a multi-step plan.
 
     This class defines a single step or action in a larger plan, containing:
-    - A detailed description explaining what this step accomplishes
+    - A task explaining what this step accomplishes
     - A type of Step that describes what kind of step this step is.
     """
-    desc: str = Field(..., description='Detailed description of the plan')
+    task: str = Field(..., description='task of this step')
     type: Literal['tool_call', 'assistant'] = Field(
         default='assistant',
         description='type of Step,\nwhen calling a function is needed: tool_call\n'
@@ -102,19 +103,19 @@ class PlanAndExecuteChatService(CommonService):
             org_plan = output.response.steps
 
             if step.type == 'assistant':
-                self.logger.info(f"\tL assistant step: {step.desc}")
+                self.logger.info(f"\tL assistant step: {step.task}")
                 sub_context = OpenAIContextManager()
-                plan_execute_prompt = self.prompt_manager.plan_execute_prompt.format(
-                    input=self.request.question,
-                    plan=org_plan, past_step='\n'.join([str(s) for s in past_step])
+                org_plan = [f"{i+1}.{step.task}\n" for i, step in enumerate(org_plan)]
+                user_prompt = self.prompt_manager.plan_execute_user_prompt.format(
+                    org_plan='\n'.join(org_plan), task=step.task
                 )
                 sub_context += [
-                    PlainInputPrompt(role='system', content=plan_execute_prompt),
-                    PlainInputPrompt(role='user', content=step.desc)
+                    PlainInputPrompt(role='system', content=self.prompt_manager.plan_execute_system_prompt),
+                    PlainInputPrompt(role='user', content=user_prompt)
                 ]
-                output = await self.llm.structured_output(main_context, structure=Response)
+                output = await self.llm.structured_output(sub_context, structure=Response)
                 past_step.append(
-                    (step.desc, output.message)
+                    (step.task, output.message)
                 )
 
             elif step.type == 'tool_call':
@@ -123,7 +124,7 @@ class PlanAndExecuteChatService(CommonService):
                 if invoked_tools:
                     self.logger.info("\t\tL invoke tool")
                     await self._execute_tools(invoked_tools)
-                self.logger.info(f"\tL tool call: {step.desc}")
+                self.logger.info(f"\tL tool call: {step.task}")
 
             else:
                 raise Exception(f"unknown step type: {step.type}")

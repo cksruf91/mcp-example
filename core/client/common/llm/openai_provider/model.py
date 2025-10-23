@@ -90,6 +90,20 @@ class OpenAIProvider(metaclass=Singleton):
 
     async def structured_output(self, conversation: OpenAIContextManager, structure: StructureT) -> StructureT:
         """
+        Generate a structured response parsed into the provided schema.
+
+        This calls the OpenAI Responses.parse API to coerce the model output into
+        the shape of the given structure (text_format), such as a Pydantic model
+        or a typed dictionary.
+
+        Args:
+            conversation: OpenAIContextManager containing conversation history and
+                instructions used to guide the model.
+            structure: StructureT schema/type used to parse the model output
+                (e.g., a Pydantic BaseModel or a TypedDict-like structure).
+
+        Returns:
+            StructureT: Parsed structured object produced by the model.
         """
         self.logger.info("call structured_output")
         response = self.openai.responses.parse(
@@ -100,8 +114,24 @@ class OpenAIProvider(metaclass=Singleton):
         )
         return response.output_parsed
 
-    async def structured_output_with_tools(self, conversation: OpenAIContextManager, structure: StructureT) -> StructureT:
+    async def structured_output_with_tools(self, conversation: OpenAIContextManager,
+                                           structure: StructureT) -> StructureT:
         """
+        Generate a structured response (with tool results) parsed into the provided schema.
+
+        Use this when the conversation may include prior tool invocations/results
+        and you want the final model response parsed into the specified structure.
+        This also utilizes the OpenAI Responses.parse API, ensuring the output
+        conforms to the given schema.
+
+        Args:
+            conversation: OpenAIContextManager containing conversation history,
+                tool results, and instructions.
+            structure: StructureT schema/type used to parse the model output
+                (e.g., a Pydantic BaseModel or a TypedDict-like structure).
+
+        Returns:
+            StructureT: Parsed structured object produced by the model.
         """
         self.logger.info("call structured_output_with_tools")
         response = self.openai.responses.parse(

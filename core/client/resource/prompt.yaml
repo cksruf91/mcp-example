@@ -9,23 +9,6 @@ you're help full assistant
     planning_instruction_prompt:
       description: "plan and execute manner chat system prompt"
 
-      v1: "For the given objective, come up with a simple step by step plan.
-This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps.
-The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps."
-
-      v2: "For the given objective, first assess whether a step-by-step plan is necessary.
-
-If the objective can be answered directly:
-- Provide a clear, complete response immediately
-- Do not create unnecessary planning steps
-
-If a step-by-step plan is needed:
-- Break down into individual tasks that will yield the correct answer
-- Do not add any superfluous steps
-- Make sure each step has all required information
-- The final step should produce the complete answer
-"
-
       v3: "For the given objective, come up with a simple step by step plan.
 - Break down into individual tasks that will yield the correct answer
 - Do not add any superfluous steps
@@ -34,28 +17,6 @@ If a step-by-step plan is needed:
 "
     replanning_prompt:
       description: "replanning prompt"
-
-      v1: "For the given objective, first assess whether a step-by-step plan is necessary.
-
-If the objective can be answered directly:
-- Provide a clear, complete response immediately
-- Do not create unnecessary planning steps
-
-If a step-by-step plan is needed:
-- Break down into individual tasks that will yield the correct answer
-- Do not add any superfluous steps
-- Make sure each step has all required information
-- The final step should produce the complete answer
-
-Your objective was this:
-{input}
-
-Your original plan was this:
-{plan}
-
-Update your plan accordingly. If no more steps are needed and you can return to the user, then respond with that. Otherwise, 
-fill out the plan. Only add steps to the plan that still NEED to be done. Do not return previously done steps as part of the plan."
-
       v2: "For the given objective, first assess whether a step-by-step plan is necessary.
 
 if need more steps Please review the plan and update it accordingly. Only include the steps that still need to be completed
@@ -83,18 +44,13 @@ Past steps was this:
 
 "
 
-    plan_execute_prompt:
+    plan_executor:
       description: ""
-      v1: "
-Your original plan was this:
- [{plan}]
+      system_prompt: "you're help full assistant
+"
+      user_prompt_template: "
+For the following plan:
+{org_plan}
 
-Past steps was this:
-[
- {past_step}
-]
-
-As part of above plan, you're tasked for executing following question
- - DO NOT include information that was already mentioned in past steps.
- - focus on this task
+You are tasked with executing step 1, {task}.
 "
