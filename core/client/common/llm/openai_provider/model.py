@@ -142,6 +142,7 @@ class OpenAIProvider(metaclass=Singleton):
         response = self.openai.responses.parse(
             model=self.model,
             instructions=conversation.instruction,
+            tools=conversation.get_available_tools(),
             input=conversation.to_list(),
             text_format=structure,
         )
