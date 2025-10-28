@@ -188,7 +188,7 @@ class PlanAndExecuteChatService(CommonService):
         async for event in app.astream(inputs, config=config):
             for k, v in event.items():
                 print("================================================")
-                print(k ,v)
+                print(k, v)
                 # if k != "__end__":
                 #     print(v)
         return v['response']

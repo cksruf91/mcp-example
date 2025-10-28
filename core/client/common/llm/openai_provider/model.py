@@ -4,7 +4,7 @@ from typing import Optional, AsyncIterable, TypeVar
 
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
-from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem)
+from openai.types.responses import (ResponseOutputMessage, ResponseOutputItem, ParsedResponseOutputItem)
 
 from common.functional.singleton import Singleton
 from common.llm.openai_provider.message import OpenAIContextManager
@@ -119,8 +119,8 @@ class OpenAIProvider(metaclass=Singleton):
         )
         return response.output_parsed
 
-    async def structured_output_with_tools(self, conversation: OpenAIContextManager,
-                                           structure: StructureT) -> StructureT:
+    async def structured_output_with_tools(self, conversation: OpenAIContextManager, structure: StructureT) \
+            -> tuple[StructureT, list[ParsedResponseOutputItem]]:
         """
         Generate a structured response (with tool results) parsed into the provided schema.
 
@@ -146,4 +146,10 @@ class OpenAIProvider(metaclass=Singleton):
             input=conversation.to_list(),
             text_format=structure,
         )
-        return response.output_parsed
+
+        function_call: list[ParsedResponseOutputItem] = []
+        for output in response.output:
+            if output.type == 'function_call':
+                function_call.append(output)
+
+        return response.output_parsed, function_call

@@ -12,11 +12,11 @@ you're help full assistant
       v3: "For the given objective, come up with a simple step by step plan.
 - Break down into individual tasks that will yield the correct answer 
 - Do not add any superfluous steps
-- Reading the task content and determine if each step requires the use of tools
 - Make sure each step has all required information
 - The final step should produce the complete answer
 
-Please provide responses in markdown format.
+Please provide responses in markdown format. 
+DO NOT call function in this step
 "
     replanning_prompt:
       description: "replanning prompt"
@@ -46,12 +46,12 @@ Past steps was this:
 \n{past_step}
 ]
 
+DO NOT call function in this step
 "
 
     plan_executor:
       description: ""
-      system_prompt: "you're help full assistant
-"
+      system_prompt: "you're help full assistant"
       user_prompt_template: "
 For the following plan:
 {org_plan}

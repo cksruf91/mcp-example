@@ -157,37 +157,89 @@ async function sendStreamMessage(text) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let accumulatedText = '';
+    let buffer = '';
+    let currentEvent = null;  // Move outside the loop to persist across chunks
 
     removeLoadingIndicator();
     const messageDiv = addMessage('');
     const bubble = messageDiv.querySelector('.message-bubble');
 
+    console.log('Starting SSE stream...');
+
     while (true) {
         const { done, value } = await reader.read();
 
-        if (done) break;
+        if (done) {
+            console.log('Stream done');
+            break;
+        }
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const data = line.slice(6).trim();
-                if (data && data !== '[DONE]') {
-                    accumulatedText += data;
-                    bubble.textContent = accumulatedText;
+            const trimmedLine = line.trim();
+            console.log('Processing line:', JSON.stringify(line));
+
+            if (trimmedLine === '') {
+                // Empty line marks the end of an event
+                console.log('Empty line - resetting event');
+                currentEvent = null;
+            } else if (line.startsWith('event: ')) {
+                currentEvent = line.slice(7).trim();
+                console.log('Event type:', currentEvent);
+            } else if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6).trim();
+                console.log('Data string:', dataStr);
+
+                if (dataStr && dataStr !== '[DONE]') {
+                    try {
+                        const data = JSON.parse(dataStr);
+                        console.log('Parsed data:', data, 'Event:', currentEvent);
+
+                        if (currentEvent === 'stream') {
+                            // Stream mode: accumulate and display contents
+                            if (data.contents) {
+                                // Remove status message styling when streaming starts
+                                bubble.classList.remove('status-message');
+                                accumulatedText += data.contents;
+                                bubble.textContent = accumulatedText;
+                                console.log('Accumulated text length:', accumulatedText.length);
+                            }
+                        } else {
+                            // Non-stream mode: display status message
+                            if (data.message) {
+                                // Add status message styling for non-stream events
+                                bubble.classList.add('status-message');
+                                bubble.textContent = `[${currentEvent || 'working'}] ${data.message}`;
+                                console.log('Status message:', data.message);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse SSE data:', e, dataStr);
+                    }
                 }
             }
         }
     }
 
+    console.log('Final accumulated text:', accumulatedText);
+
     // After streaming is complete, render markdown
     if (accumulatedText) {
+        // Remove status message styling for final response
+        bubble.classList.remove('status-message');
         bubble.innerHTML = marked.parse(accumulatedText);
 
         // Update chat history
         chatHistory.push(["user", text]);
         chatHistory.push(["assistant", accumulatedText]);
+    } else {
+        // If no accumulated text, keep the last status message
+        console.warn('No accumulated text, keeping status message');
     }
 }
 

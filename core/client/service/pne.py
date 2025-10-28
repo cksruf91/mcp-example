@@ -1,7 +1,9 @@
 import asyncio
-from typing import Union, Literal, List
+import json
+from typing import Union, Literal, List, AsyncIterable
 
 from pydantic import BaseModel, Field
+from sse_starlette.sse import ServerSentEvent
 
 from common.llm.model import McpTool
 from common.llm.model import PlainInputPrompt
@@ -92,17 +94,15 @@ class PlanAndExecuteChatService(CommonService):
             PlainInputPrompt(role='system', content=self.prompt_manager.plan_execute_system_prompt),
             PlainInputPrompt(role='user', content=user_prompt)
         )
-        if step.type == 'tool_call':
-            sub_context += await ToolListService().run(tags=[])
-            sub_context += self.llm.invoke_tools(sub_context)
-            invoked_tools = sub_context.get_invoked_tools()
-            if invoked_tools:
-                self.logger.info("\t\tL invoke tool")
-                await self._execute_tools(invoked_tools)
-            self.logger.info(f"\tL tool call: {step.task}")
-        self.logger.info(f"\tL assistant step: {step.task}")
+        sub_context += await ToolListService().run(tags=[])
+        output, function_calls = await self.llm.structured_output_with_tools(sub_context, structure=Response)
+        if function_calls:
+            sub_context += function_calls
+            self.logger.info("\t\tL invoke tool")
+            await self._execute_tools(sub_context.get_invoked_tools())
 
-        output = await self.llm.structured_output(sub_context, structure=Response)
+            output = await self.llm.structured_output(sub_context, structure=Response)
+
         return step.task, output.message
 
     async def complete(self) -> str:
@@ -139,3 +139,50 @@ class PlanAndExecuteChatService(CommonService):
 
         print(output.response.message)
         return output.response.message
+
+    async def stream(self) -> AsyncIterable[bytes]:
+        # 계획 수립을 위한 프롬프트 템플릿 생성
+        main_context = OpenAIContextManager()
+        main_context += [PlainInputPrompt(role=role, content=message) for role, message in self.request.history]
+        main_context += (
+            PlainInputPrompt(role='system', content=self.prompt_manager.planning_instruction_prompt),
+            PlainInputPrompt(role='user', content=self.request.question)
+        )
+        main_context += await ToolListService().run(tags=[])
+        self.logger.info(main_context)
+
+        yield ServerSentEvent(event='planning', data=json.dumps({'message': '생각중', 'contents': None})).encode()
+        output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
+
+        past_step = []
+        self.logger.info(f"execution plan")
+        while output.response.type == 'plan':
+            self.logger.info("-------------------step-execute------------------")
+            self.logger.info("\tL current plan")
+            for step in output.response.steps:
+                self.logger.info(f"\t\tL step: {step}")
+
+            step = output.response.steps[0]
+            yield ServerSentEvent(event='executing', data=json.dumps({'message': step.task, 'contents': None})).encode()
+
+            task, message = await self.execute_task(output.response)
+            past_step.append((task, message))
+            main_context.append(PlainInputPrompt(role='assistant', content=message))
+
+            replanning_prompt = self.prompt_manager.replanning_prompt.format(
+                input=self.request.question,
+                plan=output.response.steps, past_step='\n'.join([str(s) for s in past_step])
+            )
+            main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
+            self.logger.info(f"current prompt")
+            self.logger.info(main_context)
+            output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
+            if output is None:
+                print(output)
+                raise ValueError('output error')
+
+        print(output.response.message)
+        for char in output.response.message:
+            await asyncio.sleep(0.02)
+            yield ServerSentEvent(event='stream', data=json.dumps({'message': 'response', 'contents': char})).encode()
+        yield ServerSentEvent(event='Done', data=json.dumps({'message': 'Done', 'contents': '.'})).encode()
