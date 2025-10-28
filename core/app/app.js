@@ -2,6 +2,204 @@ const API_BASE_URL = 'http://localhost:8000';
 let currentMode = 'normal';
 let roomId = 'test-room-' + Date.now();
 let chatHistory = []; // Store chat history as [["user", "message"], ["assistant", "response"]]
+let currentSessionId = null; // Track current session ID
+
+// Session Management
+const SESSION_STORAGE_KEY = 'mcp_chat_sessions';
+
+function getSessions() {
+    const sessionsJson = localStorage.getItem(SESSION_STORAGE_KEY);
+    return sessionsJson ? JSON.parse(sessionsJson) : {};
+}
+
+function saveSessions(sessions) {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
+}
+
+function getCurrentSession() {
+    if (!currentSessionId) return null;
+    const sessions = getSessions();
+    return sessions[currentSessionId] || null;
+}
+
+function saveCurrentSession() {
+    if (!currentSessionId || chatHistory.length === 0) return;
+
+    const sessions = getSessions();
+    const container = document.getElementById('chatContainer');
+
+    // Get the first user message as title (fallback to timestamp)
+    let title = 'New Chat';
+    if (chatHistory.length > 0) {
+        const firstUserMsg = chatHistory.find(msg => msg[0] === 'user');
+        if (firstUserMsg) {
+            title = firstUserMsg[1].substring(0, 50) + (firstUserMsg[1].length > 50 ? '...' : '');
+        }
+    }
+
+    sessions[currentSessionId] = {
+        id: currentSessionId,
+        title: title,
+        roomId: roomId,
+        chatHistory: chatHistory,
+        chatHTML: container.innerHTML,
+        mode: currentMode,
+        timestamp: Date.now(),
+        lastUpdated: Date.now()
+    };
+
+    saveSessions(sessions);
+    renderSessionList();
+}
+
+function loadSession(sessionId) {
+    const sessions = getSessions();
+    const session = sessions[sessionId];
+
+    if (!session) return;
+
+    currentSessionId = sessionId;
+    roomId = session.roomId;
+    chatHistory = session.chatHistory || [];
+    currentMode = session.mode || 'normal';
+
+    // Restore chat container
+    const container = document.getElementById('chatContainer');
+    container.innerHTML = session.chatHTML;
+
+    // Re-attach delete button event handlers
+    reattachDeleteHandlers();
+
+    // Update mode toggle
+    setMode(currentMode);
+
+    // Update session list to show active session
+    renderSessionList();
+}
+
+function reattachDeleteHandlers() {
+    const container = document.getElementById('chatContainer');
+    const deleteButtons = container.querySelectorAll('.delete-message-btn');
+
+    deleteButtons.forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const messageDiv = btn.closest('.message');
+            if (messageDiv) {
+                deleteMessage(messageDiv);
+            }
+        };
+    });
+}
+
+function startNewChat() {
+    // Save current session before starting new
+    if (currentSessionId && chatHistory.length > 0) {
+        saveCurrentSession();
+    }
+
+    // Reset to new session
+    currentSessionId = 'session-' + Date.now();
+    roomId = 'test-room-' + Date.now();
+    chatHistory = [];
+
+    // Clear chat container
+    const container = document.getElementById('chatContainer');
+    container.innerHTML = `
+        <div class="message assistant">
+            <div class="message-bubble">
+                Hello! I'm your MCP assistant with Plan-and-Execute capabilities!
+            </div>
+            <div class="message-time">Just now</div>
+        </div>
+    `;
+
+    renderSessionList();
+    console.log('Started new chat:', currentSessionId);
+}
+
+function deleteSession(sessionId, event) {
+    event.stopPropagation(); // Prevent loading the session
+
+    if (!confirm('Are you sure you want to delete this chat?')) {
+        return;
+    }
+
+    const sessions = getSessions();
+    delete sessions[sessionId];
+    saveSessions(sessions);
+
+    // If deleting current session, start new chat
+    if (currentSessionId === sessionId) {
+        startNewChat();
+    } else {
+        renderSessionList();
+    }
+}
+
+function renderSessionList() {
+    const sessions = getSessions();
+    const sessionList = document.getElementById('sessionList');
+
+    const sessionArray = Object.values(sessions).sort((a, b) => b.lastUpdated - a.lastUpdated);
+
+    if (sessionArray.length === 0) {
+        sessionList.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No saved chats</p>';
+        return;
+    }
+
+    sessionList.innerHTML = sessionArray.map(session => {
+        const date = new Date(session.lastUpdated);
+        const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        const isActive = session.id === currentSessionId;
+
+        return `
+            <div class="session-item ${isActive ? 'active' : ''}" onclick="loadSession('${session.id}')">
+                <div class="session-title">${session.title}</div>
+                <div class="session-date">${dateStr}</div>
+                <button class="delete-session-btn" onclick="deleteSession('${session.id}', event)" title="Delete chat">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function deleteMessage(messageDiv) {
+    const messageIndex = parseInt(messageDiv.getAttribute('data-message-index'));
+
+    if (!confirm('Are you sure you want to delete this message?')) {
+        return;
+    }
+
+    // Remove from DOM
+    messageDiv.remove();
+
+    // Remove from chatHistory (find and remove the pair)
+    // Since messages are added in pairs (user + assistant), we need to handle this carefully
+    if (messageIndex < chatHistory.length) {
+        chatHistory.splice(messageIndex, 1);
+
+        // Update indices for remaining messages
+        const container = document.getElementById('chatContainer');
+        const messages = container.querySelectorAll('.message[data-message-index]');
+        messages.forEach(msg => {
+            const idx = parseInt(msg.getAttribute('data-message-index'));
+            if (idx > messageIndex) {
+                msg.setAttribute('data-message-index', idx - 1);
+            }
+        });
+    }
+
+    // Auto-save session
+    saveCurrentSession();
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const container = document.querySelector('.container');
+
+    sidebar.classList.toggle('open');
+    container.classList.toggle('sidebar-open');
+}
 
 function setMode(mode) {
     currentMode = mode;
@@ -16,10 +214,14 @@ function handleKeyPress(event) {
     }
 }
 
-function addMessage(text, isUser = false) {
+function addMessage(text, isUser = false, addDeleteBtn = true) {
     const container = document.getElementById('chatContainer');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+
+    // Set data attribute to track message in chatHistory
+    const messageIndex = chatHistory.length;
+    messageDiv.setAttribute('data-message-index', messageIndex);
 
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
@@ -34,6 +236,19 @@ function addMessage(text, isUser = false) {
     const time = document.createElement('div');
     time.className = 'message-time';
     time.textContent = new Date().toLocaleTimeString();
+
+    // Add delete button if requested
+    if (addDeleteBtn) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-message-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = 'Delete message';
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteMessage(messageDiv);
+        };
+        messageDiv.appendChild(deleteBtn);
+    }
 
     messageDiv.appendChild(bubble);
     messageDiv.appendChild(time);
@@ -135,6 +350,9 @@ async function sendNormalMessage(text) {
     // Update chat history
     chatHistory.push(["user", text]);
     chatHistory.push(["assistant", assistantMessage]);
+
+    // Auto-save session
+    saveCurrentSession();
 }
 
 async function sendStreamMessage(text) {
@@ -167,14 +385,14 @@ async function sendStreamMessage(text) {
     console.log('Starting SSE stream...');
 
     while (true) {
-        const { done, value } = await reader.read();
+        const {done, value} = await reader.read();
 
         if (done) {
             console.log('Stream done');
             break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, {stream: true});
         const lines = buffer.split('\n');
 
         // Keep the last incomplete line in the buffer
@@ -237,6 +455,9 @@ async function sendStreamMessage(text) {
         // Update chat history
         chatHistory.push(["user", text]);
         chatHistory.push(["assistant", accumulatedText]);
+
+        // Auto-save session
+        saveCurrentSession();
     } else {
         // If no accumulated text, keep the last status message
         console.warn('No accumulated text, keeping status message');
@@ -318,4 +539,13 @@ document.getElementById('toolsModal').addEventListener('click', (e) => {
     if (e.target.id === 'toolsModal') {
         closeModal();
     }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Start with a new session
+    startNewChat();
+
+    // Load session list
+    renderSessionList();
 });
