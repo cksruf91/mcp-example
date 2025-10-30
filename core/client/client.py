@@ -31,15 +31,13 @@ def main():
     async def ping():
         return {"ping": "Success"}
 
-    # 프론트엔드 앱 디렉토리 경로
-    app_dir = Path(__file__).parent.parent / "app"
-
     # 정적 파일 서빙 (app.js 등)
-    app.mount("/static", StaticFiles(directory='resource/app'), name="static")
+    static_file_path = Path("resource/app")
+    app.mount("/static", StaticFiles(directory=static_file_path), name="static")
 
     # 루트 경로에서 index.html 제공
     @app.get("/")
     async def serve_frontend():
-        return FileResponse("resource/app/index.html")
+        return FileResponse(static_file_path.joinpath("index.html"))
 
     return app
