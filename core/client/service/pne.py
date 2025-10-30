@@ -114,7 +114,7 @@ class PlanAndExecuteChatService(CommonService):
             PlainInputPrompt(role='user', content=self.request.question)
         )
         main_context += await ToolListService().run(tags=[])
-        output = await self.llm.structured_output_with_tools(main_context, structure=Action)
+        output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
 
         past_step = []
         self.logger.info(f"execution plan")
@@ -128,14 +128,14 @@ class PlanAndExecuteChatService(CommonService):
             past_step.append((task, message))
             main_context.append(PlainInputPrompt(role='assistant', content=message))
 
-            replanning_prompt = self.prompt_manager.replanning_prompt.format(
+            replanning_prompt = self.prompt_manager.replanning_sys_prompt.format(
                 input=self.request.question,
                 plan=output.response.steps, past_step='\n'.join([str(s) for s in past_step])
             )
             main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
             self.logger.info(f"current prompt")
             self.logger.info(main_context)
-            output = await self.llm.structured_output_with_tools(main_context, structure=Action)
+            output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
 
         print(output.response.message)
         return output.response.message
@@ -143,16 +143,18 @@ class PlanAndExecuteChatService(CommonService):
     async def stream(self) -> AsyncIterable[bytes]:
         # 계획 수립을 위한 프롬프트 템플릿 생성
         main_context = OpenAIContextManager()
-        main_context += [PlainInputPrompt(role=role, content=message) for role, message in self.request.history]
-        main_context += (
-            PlainInputPrompt(role='system', content=self.prompt_manager.planning_instruction_prompt),
-            PlainInputPrompt(role='user', content=self.request.question)
-        )
         main_context += await ToolListService().run(tags=[])
-        self.logger.info(main_context)
+        main_context += [PlainInputPrompt(role=role, content=message) for role, message in self.request.history]
+        main_context += PlainInputPrompt(role='user', content=self.request.question)
 
+        sys_prompt = self.prompt_manager.planning_instruction_prompt.format(
+            tools=main_context.get_available_tools()
+        )
+        main_context += PlainInputPrompt(role='system', content=sys_prompt)
+
+        self.logger.info(main_context)
         yield ServerSentEvent(event='planning', data=json.dumps({'message': '생각중', 'contents': None})).encode()
-        output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
+        output = await self.llm.structured_output(main_context, structure=Action)
 
         past_step = []
         self.logger.info(f"execution plan")
@@ -167,22 +169,26 @@ class PlanAndExecuteChatService(CommonService):
 
             task, message = await self.execute_task(output.response)
             past_step.append((task, message))
-            main_context.append(PlainInputPrompt(role='assistant', content=message))
 
-            replanning_prompt = self.prompt_manager.replanning_prompt.format(
-                input=self.request.question,
-                plan=output.response.steps, past_step='\n'.join([str(s) for s in past_step])
+            temp_context = OpenAIContextManager()
+            replanning_prompt = self.prompt_manager.replanning_sys_prompt.format(
+                tools=main_context.get_available_tools()
             )
-            main_context += [PlainInputPrompt(role='system', content=replanning_prompt)]
+            replanning_user = self.prompt_manager.replanning_user_prompt.format(
+                input=self.request.question,
+                plan=output.response.steps,
+                past_step='\n'.join([str(s) for s in past_step]),
+            )
+            temp_context += [
+                PlainInputPrompt(role='system', content=replanning_prompt),
+                PlainInputPrompt(role='user', content=replanning_user),
+            ]
             self.logger.info(f"current prompt")
-            self.logger.info(main_context)
-            output, _ = await self.llm.structured_output_with_tools(main_context, structure=Action)
-            if output is None:
-                print(output)
-                raise ValueError('output error')
+            self.logger.info(temp_context)
+            output = await self.llm.structured_output(temp_context, structure=Action)
 
         print(output.response.message)
         for char in output.response.message:
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0.01)
             yield ServerSentEvent(event='stream', data=json.dumps({'message': 'response', 'contents': char})).encode()
         yield ServerSentEvent(event='Done', data=json.dumps({'message': 'Done', 'contents': '.'})).encode()

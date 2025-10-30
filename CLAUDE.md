@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is an MCP (Model Context Protocol) example project demonstrating a client-server architecture where:
 - **MCP Servers** (`core/server/`) expose tools via FastMCP
 - **MCP Client** (`core/client/`) is a FastAPI application that aggregates multiple MCP servers and invokes their tools through OpenAI's function calling
-- **Frontend App** (`core/app/`) is a simple web interface for testing the MCP client functionality
+- **Frontend App** (`core/client/resource/app/`) is a simple web interface for testing the MCP client functionality
 
 ## Development Commands
 
@@ -33,31 +33,32 @@ The client is a FastAPI application that must be run from the `core/client/` dir
 uvicorn client:main --reload
 ```
 
+The FastAPI server runs on `http://localhost:8000` and serves both the API and frontend application.
+
 Client endpoints:
+- `GET /` - Serves the frontend web interface (index.html)
 - `GET /ping` - Health check
 - `GET /tool/list` - List all available tools from connected MCP servers
 - `POST /chat/main/complete` - Send a chat message that can invoke MCP tools (non-streaming)
 - `POST /chat/main/stream` - Send a chat message with streaming response
 - `POST /pne/complete` - Plan-and-execute workflow for complex multi-step tasks (non-streaming)
-- `POST /pne/stream` - Plan-and-execute workflow with streaming response (placeholder)
+- `POST /pne/stream` - Plan-and-execute workflow with streaming response
+- `/static/*` - Serves static files from the `core/client/resource/app/` directory (app.js, etc.)
 
-### Running the Frontend App
+### Accessing the Frontend App
 
-The frontend app is a simple web interface for testing the MCP client:
+Once the FastAPI client is running, simply open your browser and navigate to:
 
-```bash
-# From core/app/ directory
-open index.html
-# Or use a simple HTTP server:
-python -m http.server 8080
-# Then open http://localhost:8080 in your browser
+```
+http://localhost:8000
 ```
 
 Features:
 - **Chat Interface**: Send messages to MCP assistant
 - **Normal/Stream Mode**: Toggle between non-streaming and streaming responses
 - **Tool Discovery**: View all available MCP tools
-- Connects to FastAPI client at `http://localhost:8000`
+- **Session Management**: Save and restore chat sessions
+- **Message Deletion**: Delete individual messages or entire chat sessions
 
 ### Environment Setup
 
@@ -104,6 +105,12 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 - `route/tool.py` - Tool listing endpoint
 - `route/pne.py` - Plan-and-execute endpoint for complex multi-step tasks
 - `route/test.py` - Test endpoints
+
+**Static file serving**: FastAPI also serves the frontend application:
+- `GET /` - Returns `index.html` from `core/client/resource/app/` directory
+- `/static/*` - Serves static files (JavaScript, CSS, images) from `core/client/resource/app/` directory
+- Uses `StaticFiles` middleware to mount the app directory at `/static`
+- Frontend files are served directly from FastAPI, eliminating the need for a separate web server
 
 **Service layer** (`service/`):
 - `ChatService` - Orchestrates LLM + MCP tool invocation workflow for simple chat
@@ -169,7 +176,7 @@ FastMCP servers define tools using the `@mcp.tool()` decorator. Each tool:
 
 **CORS configuration**: The FastAPI client (`client.py:14-21`) includes CORS middleware to allow frontend apps to make API calls. Configured with `allow_origins=["*"]` for development.
 
-### Frontend App Layer (`core/app/`)
+### Frontend App Layer (`core/client/resource/app/`)
 
 Simple single-page application for testing MCP client functionality:
 - **Technology**: Vanilla JavaScript, HTML5, CSS3 (no frameworks)
@@ -209,7 +216,8 @@ Simple single-page application for testing MCP client functionality:
 ## Key Files
 
 **Client Core**:
-- `core/client/client.py:14-21` - CORS middleware configuration for API access
+- `core/client/client.py:19-25` - CORS middleware configuration for API access
+- `core/client/client.py:35-43` - Static file serving and frontend app configuration
 - `core/client/common/service.py:10` - MCP server URL configuration in `CommonService.config`
 
 **Chat Service**:
@@ -250,8 +258,8 @@ Simple single-page application for testing MCP client functionality:
 - `core/server/beta.py` - Beta MCP server (price calculation tools)
 
 **Frontend App**:
-- `core/app/index.html` - Frontend web interface HTML structure and CSS styles
-- `core/app/app.js` - JavaScript application logic and API integration
+- `core/client/resource/app/index.html` - Frontend web interface HTML structure and CSS styles
+- `core/client/resource/app/app.js` - JavaScript application logic and API integration
 
 ## Dependencies
 

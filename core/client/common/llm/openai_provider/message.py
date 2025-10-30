@@ -73,9 +73,12 @@ class OpenAIContextManager:
         self.available_tools: list[AvailableTool] = []
         self.instruction: Optional[str] = None
 
-    def __add__(self, other: list) -> 'OpenAIContextManager':
-        for _other in other:
-            self.append(_other)
+    def __add__(self, other: Union[list, Any]) -> 'OpenAIContextManager':
+        if isinstance(other, (list, tuple)):
+            for _other in other:
+                self.append(_other)
+        else:
+            self.append(other)
         return self
 
     def __repr__(self):

@@ -15,12 +15,16 @@ you're help full assistant
 - Make sure each step has all required information
 - The final step should produce the complete answer
 
+<available tools>
+\n{tools}\n
+</available tools>
+
 Please provide responses in markdown format. 
 DO NOT call function in this step
 "
     replanning_prompt:
       description: "replanning prompt"
-      v2: "For the given objective, first assess whether a step-by-step plan is necessary.
+      system_prompt: "For the given objective, first assess whether a step-by-step plan is necessary.
 
 if need more steps Please review the plan and update it accordingly. Only include the steps that still need to be completed
   - DO NOT INCLUDE any steps that have already been completed.
@@ -35,20 +39,27 @@ If no more steps are needed, you can provide a final response to the user.
   - Include all relevant information that was gathered in past steps in your final response to ensure completeness.
   - Please provide responses in markdown format.
 
-Your objective was this:
-\n{input}
-
-Your original plan was this:
-\n{plan}
-
-Past steps was this:
-[
-\n{past_step}
-]
+<available tools>
+\n{tools}\n
+</available tools>
 
 DO NOT call function in this step
 "
+      user_prompt: "
+Your objective was this:
+\n{input}\n
 
+Your original plan was this:
+\n{plan}\n
+
+You have currently done the follow steps:
+[
+\n{past_step}\n
+]
+
+if need more step, Update your plan accordingly
+if no more step needed, response to the user
+"
     plan_executor:
       description: ""
       system_prompt: "you're help full assistant"
