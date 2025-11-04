@@ -31,7 +31,7 @@ async def get_user_name(user_id: str, ctx: Context = None) -> ToolResult:
     """
     await ctx.info('get_user_name tool invoked')
     nams_space = {
-        'M4386': 'kimi raikkonen'
+        'M4386': 'D.B.Cooper'
     }
     user_name = nams_space.get(user_id)
     await ctx.info(f'get_user_name return value [{user_name}]')
@@ -64,7 +64,7 @@ async def get_user_address(user_id: str, ctx: Context = None) -> ToolResult:
     """
     await ctx.info('get_user_address tool invoked')
     nams_space = {
-        'M4386': '12 Av. des Spélugues, 98000 Monaco,'
+        'M4386': 'Seattle Tacoma International Airport'
     }
     user_address = nams_space.get(user_id)
     await ctx.info(f'get_user_address return value [{user_address}]')

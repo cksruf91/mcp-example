@@ -1,0 +1,96 @@
+mcp_client:
+  chat:
+    system_prompt:
+      description: "mcp client system prompt"
+      v1: "
+you're help full assistant
+"
+  pne:
+    planning_instruction_prompt:
+      description: "plan and execute manner chat system prompt"
+
+      v3: "For the given objective, come up with a simple step by step plan.
+- Break down into individual tasks that will yield the correct answer 
+- Do not add any superfluous steps
+- Make sure each step has all required information
+- The final step should produce the complete answer
+
+<available tools>
+\n{tools}\n
+</available tools>
+
+Please provide responses in markdown format. 
+DO NOT call function in this step
+"
+    replanning_prompt:
+      description: "replanning prompt"
+      system_prompt: "For the given objective, first assess whether a step-by-step plan is necessary.
+
+if need more steps Please review the plan and update it accordingly. Only include the steps that still need to be completed
+  - DO NOT INCLUDE any steps that have already been completed.
+  - Break down into individual tasks that will yield the correct answer
+  - Do not add any superfluous steps
+  - Make sure each step has all required information
+  - The final step should produce the complete answer
+  - update the plan with only the remaining necessary steps to reach the objective
+
+If no more steps are needed, you can provide a final response to the user.
+  - Return the final answer to the user based on the previously collected information from past steps.
+  - Include all relevant information that was gathered in past steps in your final response to ensure completeness.
+  - Please provide responses in markdown format.
+
+<available tools>
+\n{tools}\n
+</available tools>
+
+DO NOT call function in this step
+"
+      user_prompt: "
+Your objective was this:
+\n{input}\n
+
+Your original plan was this:
+\n{plan}\n
+
+You have currently done the follow steps:
+[
+\n{past_step}\n
+]
+
+if need more step, Update your plan accordingly
+if no more step needed, response to the user
+"
+    plan_executor:
+      description: ""
+      system_prompt: "you're help full assistant"
+      user_prompt_template: "
+For the following plan:
+{org_plan}
+
+You are tasked with executing step 1, {task}.
+"
+  langchain:
+    task_executor: "
+You are a helpful assistant.
+"
+    planner: "
+For the given objective, come up with a simple step by step plan. \
+This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps. \
+The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps.
+"
+    replanner: "
+For the given objective, come up with a simple step by step plan. \
+This plan should involve individual tasks, that if executed correctly will yield the correct answer. Do not add any superfluous steps. \
+The result of the final step should be the final answer. Make sure that each step has all the information needed - do not skip steps.
+
+Your objective was this:
+{input}
+
+Your original plan was this:
+{plan}
+
+You have currently done the follow steps:
+{past_steps}
+
+Update your plan accordingly. If no more steps are needed and you can return to the user, then respond with that. Otherwise, fill out the plan. Only add steps to the plan that still NEED to be done. Do not return previously done steps as part of the plan.
+"
